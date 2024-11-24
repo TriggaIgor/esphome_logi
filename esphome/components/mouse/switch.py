@@ -33,7 +33,7 @@ MousePair = mouse_ns.class_(
 @automation.register_action(
     f"mouse.pair",
     MousePair,
-    maybe_simple_id(CONFIG_SCHEMA),
+    maybe_simple_id(OPERATION_BASE_SCHEMA),
 )
 async def mouse_pair_to_code(
     config: dict, action_id: ID, template_arg: TemplateArguments, args: list
