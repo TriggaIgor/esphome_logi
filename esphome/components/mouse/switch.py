@@ -4,7 +4,6 @@ from esphome.components import switch
 from esphome.const import CONF_ID
 from esphome import automation
 from esphome.automation import maybe_simple_id
-ACTION_PAIR_CLASS: Final = "MousePairAction"
 
 mouse_ns = cg.esphome_ns.namespace('mouse')
 Mouse = mouse_ns.class_('Mouse', switch.Switch, cg.Component)
@@ -19,7 +18,7 @@ def to_code(config):
     yield switch.register_switch(var, config)
 
 MousePair = mouse_ns.class_(
-    ACTION_PAIR_CLASS, automation.Action
+    "MousePairAction", automation.Action
 )
 
 
