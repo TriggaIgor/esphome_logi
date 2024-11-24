@@ -16,7 +16,7 @@ namespace esphome
         float degreesToRadians = 2.0f * 3.14f / 360.0f;
         bool keydown = false;
 
-        class mouse : public Component, public Switch
+        class Mouse : public Component, public Switch
         {
         public:
             bool enable = true;
