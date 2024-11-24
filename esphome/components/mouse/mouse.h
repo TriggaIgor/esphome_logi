@@ -130,5 +130,16 @@ namespace esphome
                 }
             }
         };
+
+        template<typename... Ts> class MousePairActionAction : public Action<Ts...> {
+        public:
+        explicit MousePairAction(Mouse *mouse) : mouse_(mouse) {}
+        TEMPLATABLE_VALUE(std::string, text)
+
+        void pair(Ts... x) override { this->mouse_->press(this->text_.value(x...)); }
+
+        protected:
+        Mouse *mouse_;
+        };
     }
 }
