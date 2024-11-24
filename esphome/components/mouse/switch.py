@@ -4,7 +4,7 @@ from esphome.components import switch
 from esphome.const import CONF_ID
 
 mouse_ns = cg.esphome_ns.namespace('mouse')
-Mouse = empty_switch_ns.class_('Mouse', switch.Switch, cg.Component)
+Mouse = mouse_ns.class_('Mouse', switch.Switch, cg.Component)
 
 CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(Mouse)
