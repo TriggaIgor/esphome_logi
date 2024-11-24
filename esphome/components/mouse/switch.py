@@ -4,6 +4,7 @@ from esphome.components import switch
 from esphome.const import CONF_ID
 from esphome import automation
 from esphome.automation import maybe_simple_id
+from esphome.core import CORE, ID
 
 mouse_ns = cg.esphome_ns.namespace('mouse')
 Mouse = mouse_ns.class_('Mouse', switch.Switch, cg.Component)
