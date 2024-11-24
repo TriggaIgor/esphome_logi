@@ -8,6 +8,12 @@ from esphome.automation import maybe_simple_id
 mouse_ns = cg.esphome_ns.namespace('mouse')
 Mouse = mouse_ns.class_('Mouse', switch.Switch, cg.Component)
 
+OPERATION_BASE_SCHEMA = cv.Schema(
+    {
+        cv.Required(CONF_ID): cv.use_id(mouse_ns),
+    }
+)
+
 CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(Mouse)
 }).extend(cv.COMPONENT_SCHEMA)
@@ -25,7 +31,7 @@ MousePair = mouse_ns.class_(
 @automation.register_action(
     f"mouse.pair",
     MousePair,
-    maybe_simple_id(OPERATION_BASE_SCHEMA),
+    maybe_simple_id(CONFIG_SCHEMA),
 )
 async def mouse_pair_to_code(
     config: dict, action_id: ID, template_arg: TemplateArguments, args: list
