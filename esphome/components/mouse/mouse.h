@@ -1,6 +1,12 @@
+#pragma once
+
+#include "esphome/core/component.h"
+#include "esphome/components/switch/switch.h"
+#include "esphome/core/log.h"
+
 #include <elapsedMillis.h>
 #include "ludevice.h"
-#include <esphome.h>
+##include <esphome.h>
 
 
 namespace esphome
@@ -16,7 +22,7 @@ namespace esphome
         float degreesToRadians = 2.0f * 3.14f / 360.0f;
         bool keydown = false;
 
-        class Mouse : public Component, public Switch
+        class Mouse : public switch_::Switch, public Component
         {
         public:
             bool enable = true;
