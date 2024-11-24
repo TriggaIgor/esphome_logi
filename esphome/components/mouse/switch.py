@@ -23,7 +23,7 @@ MousePair = mouse_ns.class_(
 
 
 @automation.register_action(
-    f"{DOMAIN}.pair",
+    f"mouse.pair",
     MousePair,
     maybe_simple_id(OPERATION_BASE_SCHEMA),
 )
