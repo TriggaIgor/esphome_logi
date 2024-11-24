@@ -13,6 +13,7 @@ namespace esphome
 {
   namespace mouse
   {
+        static const char *const TAG = "mouse";
         double x = 0, y = 0, x0 = 0, y00 = 0, x1 = 0, y11 = 0, r = 100;
         elapsedMillis move_timer;
         int last_timer;

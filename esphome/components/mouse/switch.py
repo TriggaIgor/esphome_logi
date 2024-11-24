@@ -2,6 +2,9 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import switch
 from esphome.const import CONF_ID
+from esphome import automation
+from esphome.automation import maybe_simple_id
+ACTION_PAIR_CLASS: Final = "MousePairAction"
 
 mouse_ns = cg.esphome_ns.namespace('mouse')
 Mouse = mouse_ns.class_('Mouse', switch.Switch, cg.Component)
@@ -14,3 +17,29 @@ def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     yield cg.register_component(var, config)
     yield switch.register_switch(var, config)
+
+MousePair = mouse_ns.class_(
+    ACTION_PAIR_CLASS, automation.Action
+)
+
+
+@automation.register_action(
+    f"{DOMAIN}.pair",
+    MousePair,
+    maybe_simple_id(OPERATION_BASE_SCHEMA),
+)
+async def mouse_pair_to_code(
+    config: dict, action_id: ID, template_arg: TemplateArguments, args: list
+) -> MockObj:
+    """Action release
+
+    :param config: dict
+    :param action_id: ID
+    :param template_arg: TemplateArguments
+    :param args: list
+    :return: MockObj
+    """
+
+    paren: MockObj = await cg.get_variable(config[CONF_ID])
+
+    return cg.new_Pvariable(action_id, template_arg, paren)
