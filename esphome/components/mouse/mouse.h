@@ -128,6 +128,6 @@ namespace esphome
                     kespb.loop();
                 }
             }
-        }
+        };
     }
 }
