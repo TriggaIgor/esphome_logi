@@ -23,10 +23,12 @@ namespace esphome
         float degreesToRadians = 2.0f * 3.14f / 360.0f;
         bool keydown = false;
 
-        class Mouse : public switch_::Switch, public Component
+        class Mouse : public switch_::Switch, public PollingComponent
         {
         public:
+             Mouse() : PollingComponent(1000) {}
             bool enable = true;
+            int max_random = 20000;
             
             bool pair()
             {
@@ -53,7 +55,13 @@ namespace esphome
                 }
                 return false;
             }
+            void set_random(int rand) {
+                if (rand < 1000) max_random = 1000;
+                if (rand > 15000) max_random = 15000;
+            }
+
             
+
             void write_state(bool state) override {
                 // This will be called every time the user requests a state change.
                 enable = state;
@@ -101,12 +109,12 @@ namespace esphome
                 } 
             }
 
-            void loop()
+            void update() override
             {
                 if (enable)
                 {
-                    if ((move_timer > random(5000, 25000))){
-                            ESP_LOGD("custom","Move mouse");        
+                    if ((move_timer > random(1000, max_random))){
+                            ESP_LOGD("INFO","Move mouse");        
                             left_rand();
                             move_timer=0;
                     }
