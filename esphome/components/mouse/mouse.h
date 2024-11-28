@@ -28,7 +28,7 @@ namespace esphome
         public:
              Mouse() : PollingComponent(1000) {}
             bool enable = true;
-            int max_random = 20000;
+            int max_random = 15000;
             
             bool pair()
             {
