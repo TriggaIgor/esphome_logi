@@ -30,6 +30,8 @@ namespace esphome
             bool enable = true;
             int max_random = 15000;
             
+            float get_setup_priority() const override { return esphome::setup_priority::HARDWARE; }
+
             bool pair()
             {
                 int retcode;
