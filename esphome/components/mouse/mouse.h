@@ -136,7 +136,7 @@ namespace esphome
                 //        }
                 //        move_timer = 0;
                 //    }
-                    kespb.loop();
+                //    kespb.loop();
                 }
             }
         };
