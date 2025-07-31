@@ -3,132 +3,110 @@
 #include "esphome/core/component.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/log.h"
-
 #include <elapsedMillis.h>
 #include "ludevice.h"
-//#include <esphome.h>
 
+namespace esphome {
+namespace logitech_mouse {
 
-namespace esphome
-{
-  namespace mouse
-  {
-        static const char *const TAG = "mouse";
-        double x = 0, y = 0, x0 = 0, y00 = 0, x1 = 0, y11 = 0, r = 100;
-        elapsedMillis move_timer;
-        int last_timer;
-        ludevice kespb(2, 0);
+static const char *const TAG = "logitech_mouse";
 
-        float mouseSpeed = 10.0f;
-        float degreesToRadians = 2.0f * 3.14f / 360.0f;
-        bool keydown = false;
+class Mouse : public switch_::Switch, public Component {
+ public:
+  // Конфигурируемые параметры
+  float move_interval_min = 5000;  // 5 сек
+  float move_interval_max = 25000; // 25 сек
+  float move_duration = 2000;      // 2 сек движения
+  float mouse_speed = 10.0f;
 
-        class Mouse : public switch_::Switch, public Component
-        {
-        public:
-            bool enable = true;
-            
-            bool pair()
-            {
-                int retcode;
-                retcode = kespb.pair();
-                if (retcode == true)
-                {
-                    if (kespb.register_device())
-                    {
-                        ESP_LOGD("INFO","Paired and connected");
-                        return true;
-                        //break;
-                    }
-                }
-                else
-                {
-                    if (retcode == false)
-                    {
-                        ESP_LOGD("INFO","No dongle wants to pair");
-                        //return false;
-                        //delay(5000);
-                        //break; 
-                    }
-                }
-                return false;
-            }
-            
-            void write_state(bool state) override {
-                // This will be called every time the user requests a state change.
-                enable = state;
-                // Acknowledge new state by publishing it
-                publish_state(state);
-            }
+  void setup() override {
+    randomSeed(esp_random()); // Инициализация ГСЧ
+    this->begin();
+  }
 
-            void setup() override
-            {
-                ESP_LOGD("INFO", "start");
-                kespb.begin();
-                int i=0;
-                publish_state(true);
-                while (i<10)
-                {
-                    i++;
-                    if (kespb.reconnect())
-                    {
-                        ESP_LOGD("INFO","Reconnected!");
-                        break;
-                    }
-                    else
-                    {
-                        if (pair()) break;
-                    }
-                    yield();
-                }
-            }
-
-            void left_rand() 
-            {
-                float i = 0;
-                int delta = 0;
-                for( i = 0; i < random(2,2)*PI; i = i + PI/random(2, 20)){
-                    last_timer=move_timer;
-                    r = i*random(20, 25) +i;
-                    x1 = r * sin(i);
-                    y11 = r * cos(i);
-                    x = x1 - x0;
-                    y = y11 - y00;
-                    x0 = x1;
-                    y00 = y11;
-                    kespb.move(x,y);
-                    delay(r/2);
-                } 
-            }
-
-            void loop()
-            {
-                if (enable)
-                {
-                    if ((move_timer > random(5000, 25000))){
-                            ESP_LOGD("custom","Move mouse");        
-                            left_rand();
-                            move_timer=0;
-                    }
-
-                //   if (move_timer > 1000)
-                //    {
-                //        int x, y = 0;
-                //        ESP_LOGD("INFO","moving mouse");
-                //        kespb.typem(0xe9); // volume up
-                //        kespb.typem(0xea); // volume down
-                //        for (x = 0; x < 360; x += 5)
-                //        { 
-                //            kespb.move((uint16_t)(mouseSpeed * cos(((float)x) * degreesToRadians)),
-                //                       (uint16_t)(mouseSpeed * sin(((float)x) * degreesToRadians)));
-                            // delay(1000);
-                            // kespb.typee();
-                //        }
-                //        move_timer = 0;
-                //    }
-                    kespb.loop();
-                }
-            }
-        };
+  void begin() {
+    ESP_LOGI(TAG, "Initializing mouse emulator");
+    if (!kespb_.begin()) {
+      ESP_LOGE(TAG, "Failed to initialize HID device");
+      return;
     }
-}
+    this->reconnect();
+  }
+
+  bool reconnect() {
+    if (kespb_.reconnect()) {
+      ESP_LOGI(TAG, "Reconnected to dongle");
+      return true;
+    }
+    
+    ESP_LOGW(TAG, "Pairing attempt...");
+    if (kespb_.pair() && kespb_.register_device()) {
+      ESP_LOGI(TAG, "Paired successfully");
+      return true;
+    }
+    
+    ESP_LOGE(TAG, "Pairing failed");
+    return false;
+  }
+
+  void write_state(bool state) override {
+    enabled_ = state;
+    publish_state(state);
+    if (state) ESP_LOGD(TAG, "Mouse emulation enabled");
+  }
+
+  void loop() override {
+    static elapsedMillis connection_timer;
+    
+    // Поддержание соединения
+    if (connection_timer > 10000) {
+      if (!kespb_.is_connected() && !this->reconnect()) {
+        ESP_LOGW(TAG, "Connection lost");
+      }
+      connection_timer = 0;
+    }
+
+    // Периодическое движение
+    if (enabled_ && move_timer_ > random(move_interval_min, move_interval_max)) {
+      this->generate_movement();
+      move_timer_ = 0;
+    }
+    
+    kespb_.loop();
+  }
+
+ private:
+  ludevice kespb_{2, 0};
+  elapsedMillis move_timer_;
+  bool enabled_ = true;
+  
+  void generate_movement() {
+    const uint32_t start_time = millis();
+    const float duration = random(1000, move_duration);
+    
+    ESP_LOGD(TAG, "Generating mouse movement");
+    float x0 = 0, y0 = 0;
+    
+    while (millis() - start_time < duration) {
+      const float angle = random(0, 360) * (M_PI / 180.0f);
+      const float distance = mouse_speed * (0.5f + randomf());
+      
+      const float x = distance * cos(angle);
+      const float y = distance * sin(angle);
+      
+      kespb_.move(x, y);
+      
+      // Неблокирующая задержка
+      const uint32_t step_delay = random(20, 100);
+      delay(step_delay);
+      App.feed_wdt(); // Важно для ESP32
+    }
+  }
+
+  float randomf() {
+    return random(0, 100) / 100.0f;
+  }
+};
+
+}  // namespace logitech_mouse
+}  // namespace esphome
