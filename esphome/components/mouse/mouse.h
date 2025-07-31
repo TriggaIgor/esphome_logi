@@ -3,6 +3,7 @@
 #include "esphome/core/component.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/log.h"
+#include "esphome/core/helpers.h" // Для random_uint32()
 #include <elapsedMillis.h>
 #include "ludevice.h"
 
@@ -20,7 +21,7 @@ class Mouse : public switch_::Switch, public Component {
   float mouse_speed = 10.0f;
 
   void setup() override {
-    randomSeed(esp_random()); // Инициализация ГСЧ
+    randomSeed(random_uint32()); // Исправленная инициализация ГСЧ
     this->begin();
   }
 
@@ -60,7 +61,7 @@ class Mouse : public switch_::Switch, public Component {
     
     // Поддержание соединения
     if (connection_timer > 10000) {
-      if (!kespb_.is_connected() && !this->reconnect()) {
+      if (!kespb_.connected() && !this->reconnect()) { // Исправленный вызов
         ESP_LOGW(TAG, "Connection lost");
       }
       connection_timer = 0;
@@ -82,14 +83,14 @@ class Mouse : public switch_::Switch, public Component {
   
   void generate_movement() {
     const uint32_t start_time = millis();
-    const float duration = random(1000, move_duration);
+    const uint32_t duration = random(1000, static_cast<uint32_t>(move_duration));
     
     ESP_LOGD(TAG, "Generating mouse movement");
     float x0 = 0, y0 = 0;
     
     while (millis() - start_time < duration) {
-      const float angle = random(0, 360) * (M_PI / 180.0f);
-      const float distance = mouse_speed * (0.5f + randomf());
+      const float angle = random(0, 360) * (PI / 180.0f);
+      const float distance = mouse_speed * (0.5f + this->randomf());
       
       const float x = distance * cos(angle);
       const float y = distance * sin(angle);
