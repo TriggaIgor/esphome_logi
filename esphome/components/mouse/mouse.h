@@ -4,6 +4,7 @@
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/log.h"
 #include "ludevice.h"
+#include <algorithm> // Добавлен для std::clamp
 
 namespace esphome {
 namespace mouse {
@@ -12,19 +13,19 @@ class Mouse : public switch_::Switch, public PollingComponent {
  public:
   Mouse() : PollingComponent(1000) {}
 
-  // 1. Переместим переменные в класс (инкапсуляция)
-  double x = 0, y = 0, x0 = 0, y0 = 0, x1 = 0, y1 = 0, r = 100;
-  uint32_t move_timer = 0;
-  uint32_t last_move_time = 0;
-  bool keydown = false;
-  
-  // 2. Константы сделаем статическими и constexpr
+  // 1. Исправлен конфликт имен с Arduino.h
   static constexpr float MOUSE_SPEED = 10.0f;
-  static constexpr float DEG_TO_RAD = 2.0f * PI / 360.0f;
+  static constexpr float DEGREES_TO_RAD = 2.0f * 3.14159265358979323846f / 360.0f; // Использовано полное значение PI
 
-  // 3. Инициализация устройства в конструкторе
+  // 2. Добавлен TAG для логгирования
+  static const char *const TAG; 
+
+  double x = 0, y = 0, x0 = 0, y0 = 0, x1 = 0, y1 = 0, r = 100; // Исправлены имена (y0 вместо y00)
+  uint32_t move_timer = 0; // Инициализировано значение
+  uint32_t last_move_time = 0;
   ludevice kespb{2, 0};
   bool enable = true;
+  bool keydown = false;
   int max_random = 15000;
 
   float get_setup_priority() const override { 
@@ -43,7 +44,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
   }
 
   void set_random(int rand) {
-    max_random = std::clamp(rand, 1000, 15000);  // 4. Используем clamp для ограничения
+    max_random = std::clamp(rand, 1000, 15000);
   }
 
   void write_state(bool state) override {
@@ -56,7 +57,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
     kespb.begin();
     publish_state(true);
     
-    for (int i = 0; i < 10; i++) {  // 5. Оптимизированный цикл
+    for (int i = 0; i < 10; i++) {
       if (kespb.reconnect() || pair()) {
         ESP_LOGD(TAG, "Connection established");
         return;
@@ -67,14 +68,13 @@ class Mouse : public switch_::Switch, public PollingComponent {
   }
 
   void left_rand() {
-    const int steps = random(2, 2);  // 6. Предварительный расчет
+    const int steps = 2; // Фиксированное значение, т.к. random(2,2) всегда возвращает 2
     const float step_size = PI / random(2, 20);
     
     for(float i = 0; i < steps * PI; i += step_size) {
       last_move_time = millis();
       r = i * random(20, 25) + i;
       
-      // 7. Оптимизация тригонометрических вычислений
       const float sin_val = sin(i);
       const float cos_val = cos(i);
       
@@ -86,7 +86,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
       y0 = y1;
       
       kespb.move(x, y);
-      delay(static_cast<uint32_t>(r / 2));  // 8. Явное преобразование типа
+      delay(static_cast<uint32_t>(r / 2));
     } 
   }
 
@@ -94,15 +94,18 @@ class Mouse : public switch_::Switch, public PollingComponent {
     if (!enable) return;
     
     const uint32_t current_time = millis();
+    const uint32_t random_delay = random(1000, max_random);
     
-    // 9. Оптимизация таймера без дополнительной библиотеки
-    if ((current_time - move_timer) > random(1000, max_random)) {
+    if ((current_time - move_timer) > random_delay) {
       ESP_LOGD(TAG, "Moving mouse");
       left_rand();
       move_timer = current_time;
     }
   }
 };
+
+// 3. Определение TAG вне класса
+const char *const Mouse::TAG = "mouse";
 
 }  // namespace mouse
 }  // namespace esphome
