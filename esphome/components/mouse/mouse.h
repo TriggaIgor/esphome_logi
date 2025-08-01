@@ -236,6 +236,21 @@ class Mouse : public switch_::Switch, public PollingComponent {
       move_timer = current_time;
     }
   }
+  void set_base_speed(float speed) { base_speed = speed; }
+  void set_jitter_amount(float jitter) { jitter_amount = jitter; }
+  void set_pause_probability(float probability) { pause_probability = probability; }
+  void set_movement_duration(int min_duration, int max_duration) { 
+      min_duration_ = min_duration;
+      max_duration_ = max_duration;
+  }
+
+private:
+  // Добавляем переменные для конфигурации
+  float base_speed = 15.0f;
+  float jitter_amount = 0.5f;
+  float pause_probability = 0.1f;
+  int min_duration_ = 800;  // по умолчанию
+  int max_duration_ = 2500; // по умолчанию
 };
 
 const char *const Mouse::TAG = "mouse";
