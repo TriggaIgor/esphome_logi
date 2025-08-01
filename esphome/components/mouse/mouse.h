@@ -38,8 +38,8 @@ class Mouse : public switch_::Switch, public PollingComponent {
   
   // Параметры движения
   float speed = 15.0f;
-  float jitter_amount = 0.5f;
-  float pause_probability = 0.1f;
+  float jitter = 0.5f;
+  float probability = 0.1f;
   bool is_pausing = false;
   uint32_t pause_start = 0;
   uint32_t pause_duration = 0;
