@@ -5,40 +5,53 @@
 #include "esphome/core/log.h"
 #include "ludevice.h"
 #include <algorithm>
+#include <vector>
 
 namespace esphome {
 namespace mouse {
 
 class Mouse : public switch_::Switch, public PollingComponent {
  public:
-  // Увеличиваем частоту опроса для плавной анимации
-  Mouse() : PollingComponent(50) {}
-
-  static constexpr float MOUSE_SPEED = 10.0f;
-  static constexpr float DEGREES_TO_RAD = 2.0f * 3.14159265358979323846f / 360.0f;
+  Mouse() : PollingComponent(20) {}  // Увеличили частоту опроса для плавности
 
   static const char *const TAG;
 
-  // Оптимизация: используем float вместо double
-  float x = 0, y = 0, x0 = 0, y0 = 0, x1 = 0, y1 = 0, r = 100;
-  uint32_t move_timer = 0;
-  uint32_t last_animation_step = 0;
-  ludevice kespb{2, 0};
-  bool enable = true;
-  int max_random = 15000;
-  
   // Состояния анимации
   enum AnimationState {
     ANIMATION_IDLE,
     ANIMATION_RUNNING
   } animation_state = ANIMATION_IDLE;
   
+  // Типы движений
+  enum MovementPattern {
+    FIGURE_EIGHT,
+    RANDOM_PATH,
+    SMALL_CIRCLES,
+    HUMAN_LIKE
+  };
+
   // Параметры текущей анимации
-  float anim_i = 0;
-  float anim_step_size = 0;
-  uint32_t anim_delay = 0;
-  uint32_t anim_last_step = 0;
-  int anim_steps = 0;
+  MovementPattern current_pattern = HUMAN_LIKE;
+  uint32_t anim_start_time = 0;
+  uint32_t anim_duration = 0;
+  float anim_progress = 0;
+  
+  // Параметры движения
+  float base_speed = 15.0f;
+  float jitter_amount = 0.5f;
+  float pause_probability = 0.1f;
+  bool is_pausing = false;
+  uint32_t pause_start = 0;
+  uint32_t pause_duration = 0;
+  
+  // Позиции
+  float last_x = 0, last_y = 0;
+  float target_x = 0, target_y = 0;
+  
+  ludevice kespb{2, 0};
+  bool enable = true;
+  int max_random = 15000;
+  uint32_t move_timer = 0;
 
   float get_setup_priority() const override { 
     return esphome::setup_priority::HARDWARE; 
@@ -81,72 +94,145 @@ class Mouse : public switch_::Switch, public PollingComponent {
     ESP_LOGW(TAG, "Failed to initialize device");
   }
 
-  void start_animation() {
-    animation_state = ANIMATION_RUNNING;
-    anim_i = 0;
-    anim_steps = 2;
-    anim_step_size = PI / random(2, 20);
-    anim_delay = 0;
-    anim_last_step = millis();
-    ESP_LOGD(TAG, "Animation started");
+
+  // Квадратичная функция плавности (ease-in-out)
+  float ease_in_out_quad(float t) {
+    if (t < 0.5f) {
+      return 2.0f * t * t;
+    } else {
+      t = t * 2.0f - 1.0f;
+      return 0.5f * (1.0f - t * t * t) + 0.5f;
+    }
   }
 
-  void animation_step() {
-    const uint32_t current_time = millis();
+  // Генерация человеческого движения
+  void start_human_animation() {
+    animation_state = ANIMATION_RUNNING;
+    anim_start_time = millis();
+    anim_duration = random(800, 2500);  // Случайная длительность
+    anim_progress = 0;
+    is_pausing = false;
     
-    // Пропускаем шаг, если не прошло нужное время задержки
-    if (current_time - anim_last_step < anim_delay) {
+    // Выбор случайного паттерна
+    current_pattern = static_cast<MovementPattern>(random(0, 4));
+    
+    // Установка новой цели
+    last_x = 0;
+    last_y = 0;
+    
+    // Случайная цель в пределах рабочей области
+    target_x = random(-80, 80);
+    target_y = random(-50, 50);
+    
+    ESP_LOGD(TAG, "Starting human-like move: pattern=%d, target=(%.1f,%.1f)", 
+             current_pattern, target_x, target_y);
+  }
+
+  // Вычисление позиции на основе паттерна
+  std::pair<float, float> get_pattern_position(float progress) {
+    float x = 0, y = 0;
+    const float scale = 50.0f;  // Масштаб движений
+    
+    switch (current_pattern) {
+      case FIGURE_EIGHT:
+        // Восьмёрка
+        x = scale * sin(progress * 2 * PI);
+        y = scale * sin(progress * PI) * cos(progress * PI);
+        break;
+        
+      case RANDOM_PATH:
+        // Случайный путь
+        x = progress * target_x;
+        y = progress * target_y;
+        break;
+        
+      case SMALL_CIRCLES:
+        // Маленькие круги
+        x = scale * 0.5f * cos(progress * 4 * PI);
+        y = scale * 0.5f * sin(progress * 4 * PI);
+        break;
+        
+      case HUMAN_LIKE:
+      default:
+        // Человекоподобное движение с дрожью
+        x = ease_in_out_quad(progress) * target_x;
+        y = ease_in_out_quad(progress) * target_y;
+        break;
+    }
+    
+    return {x, y};
+  }
+
+  void human_animation_step() {
+    const uint32_t current_time = millis();
+    const uint32_t elapsed = current_time - anim_start_time;
+    
+    // Проверка завершения анимации
+    if (elapsed >= anim_duration) {
+      // Плавное завершение движения
+      const auto [final_x, final_y] = get_pattern_position(1.0f);
+      const float dx = final_x - last_x;
+      const float dy = final_y - last_y;
+      kespb.move(dx, dy);
+      
+      animation_state = ANIMATION_IDLE;
+      ESP_LOGD(TAG, "Human move completed");
       return;
     }
     
-    anim_last_step = current_time;
-    
-    // Вычисляем следующий шаг анимации
-    r = anim_i * random(20, 25) + anim_i;
-    
-    // Оптимизация: предвычисленные значения sin/cos
-    const float angle = anim_i;
-    const float sin_val = sin(angle);
-    const float cos_val = cos(angle);
-    
-    x1 = r * sin_val;
-    y1 = r * cos_val;
-    x = x1 - x0;
-    y = y1 - y0;
-    x0 = x1;
-    y0 = y1;
-    
-    kespb.move(x, y);
-    
-    // Рассчитываем задержку для следующего шага
-    anim_delay = static_cast<uint32_t>(r / 2);
-    anim_i += anim_step_size;
-    
-    // Проверяем завершение анимации
-    if (anim_i >= anim_steps * PI) {
-      animation_state = ANIMATION_IDLE;
-      ESP_LOGD(TAG, "Animation completed");
+    // Проверка на паузу
+    if (!is_pausing && random(0.0f, 1.0f) < pause_probability) {
+      is_pausing = true;
+      pause_start = current_time;
+      pause_duration = random(50, 200);  // Короткая пауза
+      return;
     }
+    
+    // Если в паузе - пропускаем движение
+    if (is_pausing) {
+      if (current_time - pause_start >= pause_duration) {
+        is_pausing = false;
+      }
+      return;
+    }
+    
+    // Прогресс анимации с учетом easing
+    anim_progress = static_cast<float>(elapsed) / anim_duration;
+    
+    // Получаем текущую позицию
+    const auto [current_x, current_y] = get_pattern_position(anim_progress);
+    
+    // Вычисляем разницу с предыдущей позицией
+    float dx = current_x - last_x;
+    float dy = current_y - last_y;
+    
+    // Добавляем "дрожь" руки
+    dx += random(-jitter_amount, jitter_amount);
+    dy += random(-jitter_amount, jitter_amount);
+    
+    // Сохраняем текущую позицию
+    last_x = current_x;
+    last_y = current_y;
+    
+    // Отправляем движение
+    kespb.move(dx, dy);
   }
 
   void update() override {
-    // Обновляем состояние устройства
-    kespb.loop();
+    kespb.loop(); // Поддерживаем соединение
     
     if (!enable) return;
     
-    const uint32_t current_time = millis();
-    
-    // Обрабатываем анимацию, если она активна
+    // Обрабатываем анимацию
     if (animation_state == ANIMATION_RUNNING) {
-      animation_step();
+      human_animation_step();
       return;
     }
     
     // Запускаем новую анимацию по таймеру
+    const uint32_t current_time = millis();
     if ((current_time - move_timer) > random(1000, max_random)) {
-      ESP_LOGD(TAG, "Starting mouse movement");
-      start_animation();
+      start_human_animation();
       move_timer = current_time;
     }
   }
