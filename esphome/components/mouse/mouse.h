@@ -1,3 +1,5 @@
+
+
 #pragma once
 
 #include "esphome/core/component.h"
@@ -6,57 +8,57 @@
 #include "ludevice.h"
 #include <algorithm>
 #include <vector>
-#include <cmath>  // Добавляем для математических функций
+#include <cmath>
 
 namespace esphome {
 namespace mouse {
 
 class Mouse : public switch_::Switch, public PollingComponent {
  public:
-  Mouse() : PollingComponent(10) {}
+  Mouse() : PollingComponent(5) {}  // Увеличили частоту до 5 мс (200 Гц)
 
   static const char *const TAG;
-
-  // Используем наше собственное имя для PI
   static constexpr float MOUSE_PI = 3.14159265358979323846f;
 
   // Состояния анимации
   enum AnimationState {
     ANIMATION_IDLE,
-    ANIMATION_RUNNING
+    ANIMATION_ACCELERATING,
+    ANIMATION_MOVING,
+    ANIMATION_DECELERATING
   } animation_state = ANIMATION_IDLE;
   
-  // Типы движений
-  enum MovementPattern {
-    FIGURE_EIGHT,
-    RANDOM_PATH,
-    SMALL_CIRCLES,
-    HUMAN_LIKE
+  // Физические параметры движения
+  struct Point {
+    float x = 0;
+    float y = 0;
   };
 
-  // Параметры текущей анимации
-  MovementPattern current_pattern = HUMAN_LIKE;
+  Point current_position;
+  Point target_position;
+  Point velocity;
+  Point acceleration;
+  
+  // Тайминги
   uint32_t anim_start_time = 0;
-  uint32_t anim_duration = 0;
-  float anim_progress = 0;
+  uint32_t move_duration = 0;
+  uint32_t last_update_time = 0;
   
-  // Состояние паузы
-  bool is_pausing = false;
-  uint32_t pause_start = 0;
-  uint32_t pause_duration = 0;
-  
-  // Позиции
-  float last_x = 0, last_y = 0;
-  float target_x = 0, target_y = 0;
+  // Параметры движения
+  float movement_speed = 0.5f;     // Пикселей/мс (0.5 = 500 пикселей/с)
+  float max_speed = 2.0f;          // Максимальная скорость
+  float acceleration_rate = 0.01f; // Ускорение
+  float deceleration_rate = 0.02f; // Торможение
   
   ludevice kespb{2, 0};
   bool enable = true;
-  int max_random = 15000;
+  int max_random = 30000;
   uint32_t move_timer = 0;
 
   float get_setup_priority() const override { 
     return esphome::setup_priority::HARDWARE; 
   }
+
 
   bool pair() {
     if (kespb.pair()) {
@@ -71,12 +73,6 @@ class Mouse : public switch_::Switch, public PollingComponent {
 
   void set_random(int rand) {
     max_random = std::clamp(rand, 1000, 15000);
-  }
-
-  void write_state(bool state) override {
-    enable = state;
-    if (!state) animation_state = ANIMATION_IDLE;
-    publish_state(state);
   }
 
   void setup() override {
@@ -94,187 +90,178 @@ class Mouse : public switch_::Switch, public PollingComponent {
     ESP_LOGW(TAG, "Failed to initialize device");
   }
 
-  // Квадратичная функция плавности (ease-in-out)
-  float ease_in_out_quad(float t) {
-    if (t < 0.5f) {
-      return 2.0f * t * t;
-    } else {
-      t = t * 2.0f - 1.0f;
-      return 0.5f * (1.0f - t * t * t) + 0.5f;
+
+
+  void write_state(bool state) override {
+    enable = state;
+    if (!state) {
+      animation_state = ANIMATION_IDLE;
     }
+    publish_state(state);
   }
 
-  // Генерация случайного числа float в диапазоне
+  // Генерация случайного числа float
   float random_float(float min, float max) {
     return min + static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * (max - min);
   }
 
-  // Генерация человеческого движения
+  // Инициализация нового движения
   void start_human_animation() {
-    animation_state = ANIMATION_RUNNING;
     anim_start_time = millis();
-    anim_duration = random(min_duration_, max_duration_);
-    anim_progress = 0;
-    is_pausing = false;
-    
-    // Выбор случайного паттерна
-    current_pattern = static_cast<MovementPattern>(rand() % 4);
-    
-    // Установка новой цели
-    last_x = 0;
-    last_y = 0;
+    last_update_time = anim_start_time;
     
     // Случайная цель в пределах рабочей области
-    target_x = random_float(-120.0f, 120.0f);  // Было (-80.0f, 80.0f)
-    target_y = random_float(-90.0f, 90.0f);    // Было (-50.0f, 50.0f)
+    target_position.x = random_float(-200.0f, 200.0f);
+    target_position.y = random_float(-150.0f, 150.0f);
     
-    ESP_LOGD(TAG, "Starting human-like move: pattern=%d, target=(%.1f,%.1f)", 
-             current_pattern, target_x, target_y);
+    // Начальная позиция
+    current_position.x = 0;
+    current_position.y = 0;
+    
+    // Сброс скорости и ускорения
+    velocity.x = 0;
+    velocity.y = 0;
+    acceleration.x = 0;
+    acceleration.y = 0;
+    
+    // Расчет направления
+    float dx = target_position.x - current_position.x;
+    float dy = target_position.y - current_position.y;
+    float distance = std::sqrt(dx*dx + dy*dy);
+    
+    // Расчет длительности движения
+    move_duration = std::max(500, static_cast<int>(distance / movement_speed));
+    
+    // Начинаем с ускорения
+    animation_state = ANIMATION_ACCELERATING;
+    
+    ESP_LOGD(TAG, "New move: target=(%.1f,%.1f), duration=%dms", 
+             target_position.x, target_position.y, move_duration);
   }
 
-  // Вычисление позиции на основе паттерна
-std::pair<float, float> get_pattern_position(float progress) {
-    float x = 0, y = 0;
-    const float scale = 50.0f;  // Вернули исходный масштаб
-    
-    // Используем предварительно вычисленные углы
-    const float angle = progress * 2 * MOUSE_PI;
-    const float sin_val = std::sin(angle);
-    const float cos_val = std::cos(angle);
-    
-    switch (current_pattern) {
-        case FIGURE_EIGHT:
-            x = scale * sin_val;
-            y = scale * sin_val * cos_val;
-            break;
-            
-        case RANDOM_PATH:
-            x = progress * target_x;
-            y = progress * target_y;
-            break;
-            
-        case SMALL_CIRCLES:
-            x = scale * 0.3f * std::cos(angle * 2);
-            y = scale * 0.3f * std::sin(angle * 2);
-            break;
-            
-        case HUMAN_LIKE:
-        default:
-            x = ease_in_out_quad(progress) * target_x;
-            y = ease_in_out_quad(progress) * target_y;
-            break;
-    }
-    
-    return {x, y};
-}
-
- void human_animation_step() {
+  // Физический шаг движения
+  void physics_step() {
     const uint32_t current_time = millis();
-    const uint32_t elapsed = current_time - anim_start_time;
+    const float delta_time = (current_time - last_update_time) / 1000.0f; // В секундах
+    last_update_time = current_time;
     
-    if (elapsed >= anim_duration) {
-        // Плавное завершение движения
-        anim_progress = 1.0f;
-        const auto [current_x, current_y] = get_pattern_position(anim_progress);
-        
-        // Вычисляем разницу с предыдущей позицией
-        float dx = (current_x - last_x) * base_speed;
-        float dy = (current_y - last_y) * base_speed;
-        
-        // Ограничиваем максимальное перемещение за шаг
-        const float max_step = 20.0f;
-        dx = std::max(std::min(dx, max_step), -max_step);
-        dy = std::max(std::min(dy, max_step), -max_step);
-        
-        kespb.move(dx, dy);
-        
-        animation_state = ANIMATION_IDLE;
-        ESP_LOGD(TAG, "Human move completed");
-        return;
-    }
+    // Рассчитываем вектор к цели
+    float dx = target_position.x - current_position.x;
+    float dy = target_position.y - current_position.y;
+    float distance = std::sqrt(dx*dx + dy*dy);
     
-    // Проверка на паузу
-    if (!is_pausing && random_float(0.0f, 1.0f) < pause_probability) {
-        is_pausing = true;
-        pause_start = current_time;
-        pause_duration = random(50, 200);
-        return;
-    }
-    
-    if (is_pausing) {
-        if (current_time - pause_start >= pause_duration) {
-            is_pausing = false;
-        }
-        return;
-    }
-    
-    // Плавное изменение прогресса
-    anim_progress = static_cast<float>(elapsed) / anim_duration;
-    
-    // Получаем текущую позицию
-    const auto [current_x, current_y] = get_pattern_position(anim_progress);
-    
-    // Вычисляем разницу с предыдущей позицией
-    float dx = (current_x - last_x) * base_speed;
-    float dy = (current_y - last_y) * base_speed;
-    
-    // Ограничиваем максимальное перемещение за шаг
-    const float max_step = 20.0f;
-    dx = std::max(std::min(dx, max_step), -max_step);
-    dy = std::max(std::min(dy, max_step), -max_step);
-    
-    // Добавляем "дрожь" руки
-    dx += random_float(-jitter_amount, jitter_amount);
-    dy += random_float(-jitter_amount, jitter_amount);
-    
-    // Сохраняем текущую позицию
-    last_x = current_x;
-    last_y = current_y;
-    
-    // Отправляем движение
-    kespb.move(dx, dy);
-}
-
-  void update() override {
-    kespb.loop();
-    
-    if (!enable) return;
-    
-    if (animation_state == ANIMATION_RUNNING) {
-      human_animation_step();
+    // Если достигли цели
+    if (distance < 0.5f) {
+      animation_state = ANIMATION_IDLE;
       return;
     }
     
+    // Нормализованный вектор направления
+    float dir_x = dx / distance;
+    float dir_y = dy / distance;
+    
+    // Управление ускорением в зависимости от фазы
+    switch (animation_state) {
+      case ANIMATION_ACCELERATING:
+        acceleration.x = dir_x * acceleration_rate;
+        acceleration.y = dir_y * acceleration_rate;
+        
+        // Переход к равномерному движению
+        if (std::sqrt(velocity.x*velocity.x + velocity.y*velocity.y) >= movement_speed) {
+          animation_state = ANIMATION_MOVING;
+        }
+        break;
+        
+      case ANIMATION_MOVING:
+        // Поддерживаем постоянную скорость
+        acceleration.x = 0;
+        acceleration.y = 0;
+        
+        // Начинаем тормозить при приближении к цели
+        if (distance < 50.0f) {
+          animation_state = ANIMATION_DECELERATING;
+        }
+        break;
+        
+      case ANIMATION_DECELERATING:
+        // Торможение пропорционально оставшемуся расстоянию
+        float brake_factor = std::min(1.0f, distance / 30.0f);
+        acceleration.x = -velocity.x * deceleration_rate * brake_factor;
+        acceleration.y = -velocity.y * deceleration_rate * brake_factor;
+        break;
+    }
+    
+    // Обновляем скорость с ограничением
+    velocity.x += acceleration.x * delta_time;
+    velocity.y += acceleration.y * delta_time;
+    
+    // Ограничение максимальной скорости
+    float current_speed = std::sqrt(velocity.x*velocity.x + velocity.y*velocity.y);
+    if (current_speed > max_speed) {
+      velocity.x = velocity.x * max_speed / current_speed;
+      velocity.y = velocity.y * max_speed / current_speed;
+    }
+    
+    // Обновляем позицию
+    current_position.x += velocity.x * delta_time * 1000.0f;
+    current_position.y += velocity.y * delta_time * 1000.0f;
+    
+    // Добавляем "дрожь" руки
+    float jitter_x = random_float(-jitter_amount, jitter_amount);
+    float jitter_y = random_float(-jitter_amount, jitter_amount);
+    
+    // Отправляем движение (конвертируем в int для HID протокола)
+    int move_x = static_cast<int>((velocity.x + jitter_x) * base_speed);
+    int move_y = static_cast<int>((velocity.y + jitter_y) * base_speed);
+    
+    // Ограничиваем максимальное перемещение за шаг
+    move_x = std::max(std::min(move_x, 127), -128);
+    move_y = std::max(std::min(move_y, 127), -128);
+    
+    kespb.move(move_x, move_y);
+  }
+
+  void update() override {
+    kespb.loop(); // Поддерживаем соединение
+    
+    if (!enable) return;
+    
+    // Обрабатываем анимацию
+    if (animation_state != ANIMATION_IDLE) {
+      physics_step();
+    }
+    
+    // Запускаем новое движение по таймеру
     const uint32_t current_time = millis();
-    if ((current_time - move_timer) > static_cast<uint32_t>(random(1000, max_random))) {
+    if (animation_state == ANIMATION_IDLE && 
+        (current_time - move_timer) > static_cast<uint32_t>(random(5000, max_random))) {
       start_human_animation();
       move_timer = current_time;
     }
   }
   
+  // Методы для конфигурации
   void set_base_speed(float speed) { base_speed = speed; }
   void set_jitter_amount(float jitter) { jitter_amount = jitter; }
-  void set_pause_probability(float probability) { pause_probability = probability; }
-  void set_movement_duration(int min_duration, int max_duration) { 
-      min_duration_ = min_duration;
-      max_duration_ = max_duration;
-  }
+  void set_movement_speed(float speed) { movement_speed = speed; }
+  void set_max_speed(float speed) { max_speed = speed; }
+  void set_acceleration_rate(float rate) { acceleration_rate = rate; }
+  void set_deceleration_rate(float rate) { deceleration_rate = rate; }
 
   void dump_config() override {
-      ESP_LOGCONFIG(TAG, "Mouse Settings:");
-      ESP_LOGCONFIG(TAG, "  Base Speed: %.1f", base_speed);
-      ESP_LOGCONFIG(TAG, "  Jitter Amount: %.2f", jitter_amount);
-      ESP_LOGCONFIG(TAG, "  Pause Probability: %.2f", pause_probability);
-      ESP_LOGCONFIG(TAG, "  Movement Duration: %d-%d ms", min_duration_, max_duration_);
+    ESP_LOGCONFIG(TAG, "Mouse Settings:");
+    ESP_LOGCONFIG(TAG, "  Base Speed: %.1f", base_speed);
+    ESP_LOGCONFIG(TAG, "  Jitter Amount: %.2f", jitter_amount);
+    ESP_LOGCONFIG(TAG, "  Movement Speed: %.2f px/ms", movement_speed);
+    ESP_LOGCONFIG(TAG, "  Max Speed: %.2f px/ms", max_speed);
+    ESP_LOGCONFIG(TAG, "  Acceleration: %.4f", acceleration_rate);
+    ESP_LOGCONFIG(TAG, "  Deceleration: %.4f", deceleration_rate);
   }
 
 private:
   // Параметры конфигурации
-    float base_speed = 5.0f;       // Увеличили базовую скорость
-    float jitter_amount = 1.0f;     // Увеличили дрожь
-    float pause_probability = 0.1f;
-    int min_duration_ = 800;       // Увеличили длительность
-    int max_duration_ = 1500;
+  float base_speed = 8.0f;
+  float jitter_amount = 1.5f;
 };
 
 const char *const Mouse::TAG = "mouse";
