@@ -9,23 +9,19 @@ Mouse = mouse_ns.class_('Mouse', switch.Switch, cg.Component)
 # Конфигурационные ключи
 CONF_BASE_SPEED = "base_speed"
 CONF_JITTER_AMOUNT = "jitter_amount"
-CONF_PAUSE_PROBABILITY = "pause_probability"
-CONF_MOVEMENT_DURATION = "movement_duration"
-CONF_MIN_DURATION = "min"
-CONF_MAX_DURATION = "max"
-
-# Схема для длительности движения (целые числа в миллисекундах)
-MOVEMENT_DURATION_SCHEMA = cv.Schema({
-    cv.Required(CONF_MIN_DURATION): cv.int_range(min=50, max=10000),
-    cv.Required(CONF_MAX_DURATION): cv.int_range(min=50, max=10000),
-})
+CONF_MOVEMENT_SPEED = "movement_speed"
+CONF_MAX_SPEED = "max_speed"
+CONF_ACCELERATION_RATE = "acceleration_rate"
+CONF_DECELERATION_RATE = "deceleration_rate"
 
 CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(Mouse),
-    cv.Optional(CONF_BASE_SPEED, default=15.0): cv.float_range(min=1.0, max=100.0),
-    cv.Optional(CONF_JITTER_AMOUNT, default=0.5): cv.float_range(min=0.0, max=5.0),
-    cv.Optional(CONF_PAUSE_PROBABILITY, default=0.1): cv.float_range(min=0.0, max=1.0),
-    cv.Optional(CONF_MOVEMENT_DURATION): MOVEMENT_DURATION_SCHEMA,
+    cv.Optional(CONF_BASE_SPEED, default=8.0): cv.float_range(min=0.1, max=100.0),
+    cv.Optional(CONF_JITTER_AMOUNT, default=1.5): cv.float_range(min=0.0, max=10.0),
+    cv.Optional(CONF_MOVEMENT_SPEED, default=0.5): cv.float_range(min=0.01, max=10.0),
+    cv.Optional(CONF_MAX_SPEED, default=2.0): cv.float_range(min=0.1, max=20.0),
+    cv.Optional(CONF_ACCELERATION_RATE, default=0.01): cv.float_range(min=0.001, max=1.0),
+    cv.Optional(CONF_DECELERATION_RATE, default=0.02): cv.float_range(min=0.001, max=1.0),
 }).extend(cv.COMPONENT_SCHEMA)
 
 def to_code(config):
@@ -33,21 +29,16 @@ def to_code(config):
     yield cg.register_component(var, config)
     yield switch.register_switch(var, config)
     
-    # Установка базовой скорости
+    # Установка параметров
     if CONF_BASE_SPEED in config:
         cg.add(var.set_base_speed(config[CONF_BASE_SPEED]))
-    
-    # Установка величины дрожи
     if CONF_JITTER_AMOUNT in config:
         cg.add(var.set_jitter_amount(config[CONF_JITTER_AMOUNT]))
-    
-    # Установка вероятности паузы
-    if CONF_PAUSE_PROBABILITY in config:
-        cg.add(var.set_pause_probability(config[CONF_PAUSE_PROBABILITY]))
-    
-    # Установка длительности движения
-    if CONF_MOVEMENT_DURATION in config:
-        duration_config = config[CONF_MOVEMENT_DURATION]
-        min_duration = duration_config[CONF_MIN_DURATION]
-        max_duration = duration_config[CONF_MAX_DURATION]
-        cg.add(var.set_movement_duration(min_duration, max_duration))
+    if CONF_MOVEMENT_SPEED in config:
+        cg.add(var.set_movement_speed(config[CONF_MOVEMENT_SPEED]))
+    if CONF_MAX_SPEED in config:
+        cg.add(var.set_max_speed(config[CONF_MAX_SPEED]))
+    if CONF_ACCELERATION_RATE in config:
+        cg.add(var.set_acceleration_rate(config[CONF_ACCELERATION_RATE]))
+    if CONF_DECELERATION_RATE in config:
+        cg.add(var.set_deceleration_rate(config[CONF_DECELERATION_RATE]))
