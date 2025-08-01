@@ -15,7 +15,7 @@ namespace mouse {
 
 class Mouse : public switch_::Switch, public PollingComponent {
  public:
-  Mouse() : PollingComponent(5) {}  // Увеличили частоту до 5 мс (200 Гц)
+  Mouse() : PollingComponent(3) {}  // Увеличили частоту до 5 мс (200 Гц)
 
   static const char *const TAG;
   static constexpr float MOUSE_PI = 3.14159265358979323846f;
@@ -111,8 +111,8 @@ class Mouse : public switch_::Switch, public PollingComponent {
     last_update_time = anim_start_time;
     
     // Случайная цель в пределах рабочей области
-    target_position.x = random_float(-400.0f, 400.0f);  // Было (-200.0f, 200.0f)
-    target_position.y = random_float(-300.0f, 300.0f);  // Было (-150.0f, 150.0f)
+    target_position.x = random_float(-200.0f, 200.0f);  // Было (-200.0f, 200.0f)
+    target_position.y = random_float(-150.0f, 150.0f);  // Было (-150.0f, 150.0f)
     
     // Начальная позиция
     current_position.x = 0;
@@ -130,7 +130,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
     float distance = std::sqrt(dx*dx + dy*dy);
     
     // Расчет длительности движения
-    move_duration = std::max(500, static_cast<int>(distance / movement_speed));
+    move_duration = std::max(800, static_cast<int>(distance / movement_speed));
     
     // Начинаем с ускорения
     animation_state = ANIMATION_ACCELERATING;
@@ -202,9 +202,11 @@ class Mouse : public switch_::Switch, public PollingComponent {
       velocity.y = velocity.y * max_speed / current_speed;
     }
     
-    // Обновляем позицию
-    current_position.x += velocity.x * delta_time * 1000.0f;
-    current_position.y += velocity.y * delta_time * 1000.0f;
+    const float scale_factor = 2.0f; // Увеличиваем амплитуду в 2 раза
+    
+    // Обновляем позицию с масштабированием
+    current_position.x += velocity.x * delta_time * 1000.0f * scale_factor;
+    current_position.y += velocity.y * delta_time * 1000.0f * scale_factor;
     
     // Добавляем "дрожь" руки
     float jitter_x = random_float(-jitter_amount, jitter_amount);
@@ -215,8 +217,8 @@ class Mouse : public switch_::Switch, public PollingComponent {
     int move_y = static_cast<int>((velocity.y + jitter_y) * base_speed);
     
     // Ограничиваем максимальное перемещение за шаг
-    move_x = std::max(std::min(move_x, 127), -128);
-    move_y = std::max(std::min(move_y, 127), -128);
+    move_x = std::max(std::min(move_x, 200), -200);  // Было ±127
+    move_y = std::max(std::min(move_y, 200), -200);  // Было ±127
     
     kespb.move(move_x, move_y);
   }
@@ -260,8 +262,12 @@ class Mouse : public switch_::Switch, public PollingComponent {
 
 private:
   // Параметры конфигурации
-  float base_speed = 8.0f;
-  float jitter_amount = 1.5f;
+    float base_speed = 15.0f;       // Было 8.0f
+    float jitter_amount = 2.5f;     // Было 1.5f
+    float movement_speed = 0.7f;    // Было 0.5f
+    float max_speed = 3.0f;         // Было 2.0f
+    float acceleration_rate = 0.02f; // Было 0.01f
+    float deceleration_rate = 0.03f; // Было 0.02f
 };
 
 const char *const Mouse::TAG = "mouse";
