@@ -10,9 +10,12 @@
 namespace esphome {
 namespace mouse {
 
+// Определяем константу PI
+static constexpr float PI = 3.14159265358979323846f;
+
 class Mouse : public switch_::Switch, public PollingComponent {
  public:
-  Mouse() : PollingComponent(20) {}  // Увеличили частоту опроса для плавности
+  Mouse() : PollingComponent(20) {}
 
   static const char *const TAG;
 
@@ -36,10 +39,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
   uint32_t anim_duration = 0;
   float anim_progress = 0;
   
-  // Параметры движения
-  float speed = 15.0f;
-  float jitter = 0.5f;
-  float probability = 0.1f;
+  // Состояние паузы
   bool is_pausing = false;
   uint32_t pause_start = 0;
   uint32_t pause_duration = 0;
@@ -105,6 +105,11 @@ class Mouse : public switch_::Switch, public PollingComponent {
     }
   }
 
+  // Генерация случайного числа float в диапазоне
+  float random_float(float min, float max) {
+    return min + static_cast<float>(random(0, 10000)) / 10000.0f * (max - min);
+  }
+
   // Генерация человеческого движения
   void start_human_animation() {
     animation_state = ANIMATION_RUNNING;
@@ -121,8 +126,8 @@ class Mouse : public switch_::Switch, public PollingComponent {
     last_y = 0;
     
     // Случайная цель в пределах рабочей области
-    target_x = random(-80, 80);
-    target_y = random(-50, 50);
+    target_x = random_float(-80.0f, 80.0f);
+    target_y = random_float(-50.0f, 50.0f);
     
     ESP_LOGD(TAG, "Starting human-like move: pattern=%d, target=(%.1f,%.1f)", 
              current_pattern, target_x, target_y);
@@ -181,7 +186,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
     }
     
     // Проверка на паузу
-    if (!is_pausing && random(0.0f, 1.0f) < pause_probability) {
+    if (!is_pausing && random_float(0.0f, 1.0f) < pause_probability) {
       is_pausing = true;
       pause_start = current_time;
       pause_duration = random(50, 200);  // Короткая пауза
@@ -207,8 +212,8 @@ class Mouse : public switch_::Switch, public PollingComponent {
     float dy = current_y - last_y;
     
     // Добавляем "дрожь" руки
-    dx += random(-jitter_amount, jitter_amount);
-    dy += random(-jitter_amount, jitter_amount);
+    dx += random_float(-jitter_amount, jitter_amount);
+    dy += random_float(-jitter_amount, jitter_amount);
     
     // Сохраняем текущую позицию
     last_x = current_x;
@@ -236,6 +241,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
       move_timer = current_time;
     }
   }
+  
   void set_base_speed(float speed) { base_speed = speed; }
   void set_jitter_amount(float jitter) { jitter_amount = jitter; }
   void set_pause_probability(float probability) { pause_probability = probability; }
@@ -253,12 +259,12 @@ class Mouse : public switch_::Switch, public PollingComponent {
   }
 
 private:
-  // Добавляем переменные для конфигурации
+  // Параметры конфигурации
   float base_speed = 15.0f;
   float jitter_amount = 0.5f;
   float pause_probability = 0.1f;
-  int min_duration_ = 800;  // по умолчанию
-  int max_duration_ = 2500; // по умолчанию
+  int min_duration_ = 800;   // по умолчанию
+  int max_duration_ = 2500;  // по умолчанию
 };
 
 const char *const Mouse::TAG = "mouse";
