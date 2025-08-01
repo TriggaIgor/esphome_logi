@@ -14,10 +14,10 @@ CONF_MOVEMENT_DURATION = "movement_duration"
 CONF_MIN_DURATION = "min"
 CONF_MAX_DURATION = "max"
 
-# Схема для длительности движения
+# Схема для длительности движения (целые числа в миллисекундах)
 MOVEMENT_DURATION_SCHEMA = cv.Schema({
-    cv.Required(CONF_MIN_DURATION): cv.positive_time_period_milliseconds,
-    cv.Required(CONF_MAX_DURATION): cv.positive_time_period_milliseconds,
+    cv.Required(CONF_MIN_DURATION): cv.int_range(min=50, max=10000),
+    cv.Required(CONF_MAX_DURATION): cv.int_range(min=50, max=10000),
 })
 
 CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend({
@@ -48,6 +48,6 @@ def to_code(config):
     # Установка длительности движения
     if CONF_MOVEMENT_DURATION in config:
         duration_config = config[CONF_MOVEMENT_DURATION]
-        min_duration = int(duration_config[CONF_MIN_DURATION])
-        max_duration = int(duration_config[CONF_MAX_DURATION])
+        min_duration = duration_config[CONF_MIN_DURATION]
+        max_duration = duration_config[CONF_MAX_DURATION]
         cg.add(var.set_movement_duration(min_duration, max_duration))
