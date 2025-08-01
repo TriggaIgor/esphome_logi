@@ -37,7 +37,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
   float anim_progress = 0;
   
   // Параметры движения
-  float base_speed = 15.0f;
+  float speed = 15.0f;
   float jitter_amount = 0.5f;
   float pause_probability = 0.1f;
   bool is_pausing = false;
@@ -252,6 +252,13 @@ class Mouse : public switch_::Switch, public PollingComponent {
       ESP_LOGCONFIG(TAG, "  Movement Duration: %d-%d ms", min_duration_, max_duration_);
   }
 
+private:
+  // Добавляем переменные для конфигурации
+  float base_speed = 15.0f;
+  float jitter_amount = 0.5f;
+  float pause_probability = 0.1f;
+  int min_duration_ = 800;  // по умолчанию
+  int max_duration_ = 2500; // по умолчанию
 };
 
 const char *const Mouse::TAG = "mouse";
