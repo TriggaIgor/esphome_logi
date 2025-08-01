@@ -111,8 +111,8 @@ class Mouse : public switch_::Switch, public PollingComponent {
     last_update_time = anim_start_time;
     
     // Случайная цель в пределах рабочей области
-    target_position.x = random_float(-200.0f, 200.0f);
-    target_position.y = random_float(-150.0f, 150.0f);
+    target_position.x = random_float(-400.0f, 400.0f);  // Было (-200.0f, 200.0f)
+    target_position.y = random_float(-300.0f, 300.0f);  // Было (-150.0f, 150.0f)
     
     // Начальная позиция
     current_position.x = 0;
