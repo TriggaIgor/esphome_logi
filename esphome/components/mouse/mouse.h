@@ -109,7 +109,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
   void start_human_animation() {
     animation_state = ANIMATION_RUNNING;
     anim_start_time = millis();
-    anim_duration = random(800, 2500);  // Случайная длительность
+    anim_duration = random(min_duration_, max_duration_); // Случайная длительность
     anim_progress = 0;
     is_pausing = false;
     
