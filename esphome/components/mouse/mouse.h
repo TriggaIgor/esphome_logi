@@ -44,12 +44,6 @@ class Mouse : public switch_::Switch, public PollingComponent {
   uint32_t move_duration = 0;
   uint32_t last_update_time = 0;
   
-  // Параметры движения
-  float movement_speed = 0.5f;     // Пикселей/мс (0.5 = 500 пикселей/с)
-  float max_speed = 2.0f;          // Максимальная скорость
-  float acceleration_rate = 0.01f; // Ускорение
-  float deceleration_rate = 0.02f; // Торможение
-  
   ludevice kespb{2, 0};
   bool enable = true;
   int max_random = 30000;
