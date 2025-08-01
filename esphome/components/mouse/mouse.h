@@ -244,6 +244,14 @@ class Mouse : public switch_::Switch, public PollingComponent {
       max_duration_ = max_duration;
   }
 
+  void dump_config() override {
+      ESP_LOGCONFIG(TAG, "Mouse Settings:");
+      ESP_LOGCONFIG(TAG, "  Base Speed: %.1f", base_speed);
+      ESP_LOGCONFIG(TAG, "  Jitter Amount: %.2f", jitter_amount);
+      ESP_LOGCONFIG(TAG, "  Pause Probability: %.2f", pause_probability);
+      ESP_LOGCONFIG(TAG, "  Movement Duration: %d-%d ms", min_duration_, max_duration_);
+  }
+
 private:
   // Добавляем переменные для конфигурации
   float base_speed = 15.0f;
