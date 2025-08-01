@@ -13,7 +13,7 @@ namespace mouse {
 
 class Mouse : public switch_::Switch, public PollingComponent {
  public:
-  Mouse() : PollingComponent(20) {}
+  Mouse() : PollingComponent(10) {}
 
   static const char *const TAG;
 
@@ -125,89 +125,115 @@ class Mouse : public switch_::Switch, public PollingComponent {
     last_y = 0;
     
     // Случайная цель в пределах рабочей области
-    target_x = random_float(-200.0f, 200.0f);  // Было (-80.0f, 80.0f)
-    target_y = random_float(-150.0f, 150.0f);  // Было (-50.0f, 50.0f)
+    target_x = random_float(-120.0f, 120.0f);  // Было (-80.0f, 80.0f)
+    target_y = random_float(-90.0f, 90.0f);    // Было (-50.0f, 50.0f)
     
     ESP_LOGD(TAG, "Starting human-like move: pattern=%d, target=(%.1f,%.1f)", 
              current_pattern, target_x, target_y);
   }
 
   // Вычисление позиции на основе паттерна
-  std::pair<float, float> get_pattern_position(float progress) {
+std::pair<float, float> get_pattern_position(float progress) {
     float x = 0, y = 0;
-    const float scale = 150.0f;
+    const float scale = 50.0f;  // Вернули исходный масштаб
+    
+    // Используем предварительно вычисленные углы
+    const float angle = progress * 2 * MOUSE_PI;
+    const float sin_val = std::sin(angle);
+    const float cos_val = std::cos(angle);
     
     switch (current_pattern) {
-      case FIGURE_EIGHT:
-        x = scale * std::sin(progress * 2 * MOUSE_PI);
-        y = scale * std::sin(progress * MOUSE_PI) * std::cos(progress * MOUSE_PI);
-        break;
-        
-      case RANDOM_PATH:
-        x = progress * target_x;
-        y = progress * target_y;
-        break;
-        
-      case SMALL_CIRCLES:
-        x = scale * 0.5f * std::cos(progress * 4 * MOUSE_PI);
-        y = scale * 0.5f * std::sin(progress * 4 * MOUSE_PI);
-        break;
-        
-      case HUMAN_LIKE:
-      default:
-        x = ease_in_out_quad(progress) * target_x;
-        y = ease_in_out_quad(progress) * target_y;
-        break;
+        case FIGURE_EIGHT:
+            x = scale * sin_val;
+            y = scale * sin_val * cos_val;
+            break;
+            
+        case RANDOM_PATH:
+            x = progress * target_x;
+            y = progress * target_y;
+            break;
+            
+        case SMALL_CIRCLES:
+            x = scale * 0.3f * std::cos(angle * 2);
+            y = scale * 0.3f * std::sin(angle * 2);
+            break;
+            
+        case HUMAN_LIKE:
+        default:
+            x = ease_in_out_quad(progress) * target_x;
+            y = ease_in_out_quad(progress) * target_y;
+            break;
     }
     
     return {x, y};
-  }
+}
 
-  void human_animation_step() {
-     const uint32_t current_time = millis();
-     const uint32_t elapsed = current_time - anim_start_time;
-     
-     if (elapsed >= anim_duration) {
-         const auto [final_x, final_y] = get_pattern_position(1.0f);
-         float dx = (final_x - last_x) * base_speed;
-         float dy = (final_y - last_y) * base_speed;
-         kespb.move(dx, dy);
-         
-         animation_state = ANIMATION_IDLE;
-         ESP_LOGD(TAG, "Human move completed");
-         return;
-     }
-     
-     if (!is_pausing && random_float(0.0f, 1.0f) < pause_probability) {
-         is_pausing = true;
-         pause_start = current_time;
-         pause_duration = random(50, 200);
-         return;
-     }
-     
-     if (is_pausing) {
-         if (current_time - pause_start >= pause_duration) {
-             is_pausing = false;
-         }
-         return;
-     }
-     
-     anim_progress = static_cast<float>(elapsed) / anim_duration;
-     const auto [current_x, current_y] = get_pattern_position(anim_progress);
-     
-     // Умножаем перемещения на коэффициент скорости
-     float dx = (current_x - last_x) * base_speed;
-     float dy = (current_y - last_y) * base_speed;
-     
-     // Добавляем "дрожь" руки
-     dx += random_float(-jitter_amount, jitter_amount);
-     dy += random_float(-jitter_amount, jitter_amount);
-     
-     last_x = current_x;
-     last_y = current_y;
-     
-     kespb.move(dx, dy);
-  }
+ void human_animation_step() {
+    const uint32_t current_time = millis();
+    const uint32_t elapsed = current_time - anim_start_time;
+    
+    if (elapsed >= anim_duration) {
+        // Плавное завершение движения
+        anim_progress = 1.0f;
+        const auto [current_x, current_y] = get_pattern_position(anim_progress);
+        
+        // Вычисляем разницу с предыдущей позицией
+        float dx = (current_x - last_x) * base_speed;
+        float dy = (current_y - last_y) * base_speed;
+        
+        // Ограничиваем максимальное перемещение за шаг
+        const float max_step = 20.0f;
+        dx = std::max(std::min(dx, max_step), -max_step);
+        dy = std::max(std::min(dy, max_step), -max_step);
+        
+        kespb.move(dx, dy);
+        
+        animation_state = ANIMATION_IDLE;
+        ESP_LOGD(TAG, "Human move completed");
+        return;
+    }
+    
+    // Проверка на паузу
+    if (!is_pausing && random_float(0.0f, 1.0f) < pause_probability) {
+        is_pausing = true;
+        pause_start = current_time;
+        pause_duration = random(50, 200);
+        return;
+    }
+    
+    if (is_pausing) {
+        if (current_time - pause_start >= pause_duration) {
+            is_pausing = false;
+        }
+        return;
+    }
+    
+    // Плавное изменение прогресса
+    anim_progress = static_cast<float>(elapsed) / anim_duration;
+    
+    // Получаем текущую позицию
+    const auto [current_x, current_y] = get_pattern_position(anim_progress);
+    
+    // Вычисляем разницу с предыдущей позицией
+    float dx = (current_x - last_x) * base_speed;
+    float dy = (current_y - last_y) * base_speed;
+    
+    // Ограничиваем максимальное перемещение за шаг
+    const float max_step = 20.0f;
+    dx = std::max(std::min(dx, max_step), -max_step);
+    dy = std::max(std::min(dy, max_step), -max_step);
+    
+    // Добавляем "дрожь" руки
+    dx += random_float(-jitter_amount, jitter_amount);
+    dy += random_float(-jitter_amount, jitter_amount);
+    
+    // Сохраняем текущую позицию
+    last_x = current_x;
+    last_y = current_y;
+    
+    // Отправляем движение
+    kespb.move(dx, dy);
+}
 
   void update() override {
     kespb.loop();
@@ -244,11 +270,11 @@ class Mouse : public switch_::Switch, public PollingComponent {
 
 private:
   // Параметры конфигурации
-  float base_speed = 15.0f;
-  float jitter_amount = 0.5f;
-  float pause_probability = 0.1f;
-  int min_duration_ = 300;  // Было 800
-  int max_duration_ = 1000; // Было 2500
+    float base_speed = 5.0f;       // Увеличили базовую скорость
+    float jitter_amount = 1.0f;     // Увеличили дрожь
+    float pause_probability = 0.1f;
+    int min_duration_ = 800;       // Увеличили длительность
+    int max_duration_ = 1500;
 };
 
 const char *const Mouse::TAG = "mouse";
