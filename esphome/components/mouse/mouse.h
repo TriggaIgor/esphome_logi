@@ -6,18 +6,19 @@
 #include "ludevice.h"
 #include <algorithm>
 #include <vector>
+#include <cmath>  // Добавляем для математических функций
 
 namespace esphome {
 namespace mouse {
-
-// Определяем константу PI
-static constexpr float PI = 3.14159265358979323846f;
 
 class Mouse : public switch_::Switch, public PollingComponent {
  public:
   Mouse() : PollingComponent(20) {}
 
   static const char *const TAG;
+
+  // Используем наше собственное имя для PI
+  static constexpr float MOUSE_PI = 3.14159265358979323846f;
 
   // Состояния анимации
   enum AnimationState {
@@ -74,7 +75,6 @@ class Mouse : public switch_::Switch, public PollingComponent {
 
   void write_state(bool state) override {
     enable = state;
-    // Сбрасываем состояние анимации при выключении
     if (!state) animation_state = ANIMATION_IDLE;
     publish_state(state);
   }
@@ -94,7 +94,6 @@ class Mouse : public switch_::Switch, public PollingComponent {
     ESP_LOGW(TAG, "Failed to initialize device");
   }
 
-
   // Квадратичная функция плавности (ease-in-out)
   float ease_in_out_quad(float t) {
     if (t < 0.5f) {
@@ -107,19 +106,19 @@ class Mouse : public switch_::Switch, public PollingComponent {
 
   // Генерация случайного числа float в диапазоне
   float random_float(float min, float max) {
-    return min + static_cast<float>(random(0, 10000)) / 10000.0f * (max - min);
+    return min + static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * (max - min);
   }
 
   // Генерация человеческого движения
   void start_human_animation() {
     animation_state = ANIMATION_RUNNING;
     anim_start_time = millis();
-    anim_duration = random(min_duration_, max_duration_); // Случайная длительность
+    anim_duration = random(min_duration_, max_duration_);
     anim_progress = 0;
     is_pausing = false;
     
     // Выбор случайного паттерна
-    current_pattern = static_cast<MovementPattern>(random(0, 4));
+    current_pattern = static_cast<MovementPattern>(rand() % 4);
     
     // Установка новой цели
     last_x = 0;
@@ -136,30 +135,26 @@ class Mouse : public switch_::Switch, public PollingComponent {
   // Вычисление позиции на основе паттерна
   std::pair<float, float> get_pattern_position(float progress) {
     float x = 0, y = 0;
-    const float scale = 50.0f;  // Масштаб движений
+    const float scale = 50.0f;
     
     switch (current_pattern) {
       case FIGURE_EIGHT:
-        // Восьмёрка
-        x = scale * sin(progress * 2 * PI);
-        y = scale * sin(progress * PI) * cos(progress * PI);
+        x = scale * std::sin(progress * 2 * MOUSE_PI);
+        y = scale * std::sin(progress * MOUSE_PI) * std::cos(progress * MOUSE_PI);
         break;
         
       case RANDOM_PATH:
-        // Случайный путь
         x = progress * target_x;
         y = progress * target_y;
         break;
         
       case SMALL_CIRCLES:
-        // Маленькие круги
-        x = scale * 0.5f * cos(progress * 4 * PI);
-        y = scale * 0.5f * sin(progress * 4 * PI);
+        x = scale * 0.5f * std::cos(progress * 4 * MOUSE_PI);
+        y = scale * 0.5f * std::sin(progress * 4 * MOUSE_PI);
         break;
         
       case HUMAN_LIKE:
       default:
-        // Человекоподобное движение с дрожью
         x = ease_in_out_quad(progress) * target_x;
         y = ease_in_out_quad(progress) * target_y;
         break;
@@ -172,9 +167,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
     const uint32_t current_time = millis();
     const uint32_t elapsed = current_time - anim_start_time;
     
-    // Проверка завершения анимации
     if (elapsed >= anim_duration) {
-      // Плавное завершение движения
       const auto [final_x, final_y] = get_pattern_position(1.0f);
       const float dx = final_x - last_x;
       const float dy = final_y - last_y;
@@ -185,15 +178,13 @@ class Mouse : public switch_::Switch, public PollingComponent {
       return;
     }
     
-    // Проверка на паузу
     if (!is_pausing && random_float(0.0f, 1.0f) < pause_probability) {
       is_pausing = true;
       pause_start = current_time;
-      pause_duration = random(50, 200);  // Короткая пауза
+      pause_duration = random(50, 200);
       return;
     }
     
-    // Если в паузе - пропускаем движение
     if (is_pausing) {
       if (current_time - pause_start >= pause_duration) {
         is_pausing = false;
@@ -201,42 +192,33 @@ class Mouse : public switch_::Switch, public PollingComponent {
       return;
     }
     
-    // Прогресс анимации с учетом easing
     anim_progress = static_cast<float>(elapsed) / anim_duration;
-    
-    // Получаем текущую позицию
     const auto [current_x, current_y] = get_pattern_position(anim_progress);
     
-    // Вычисляем разницу с предыдущей позицией
     float dx = current_x - last_x;
     float dy = current_y - last_y;
     
-    // Добавляем "дрожь" руки
     dx += random_float(-jitter_amount, jitter_amount);
     dy += random_float(-jitter_amount, jitter_amount);
     
-    // Сохраняем текущую позицию
     last_x = current_x;
     last_y = current_y;
     
-    // Отправляем движение
     kespb.move(dx, dy);
   }
 
   void update() override {
-    kespb.loop(); // Поддерживаем соединение
+    kespb.loop();
     
     if (!enable) return;
     
-    // Обрабатываем анимацию
     if (animation_state == ANIMATION_RUNNING) {
       human_animation_step();
       return;
     }
     
-    // Запускаем новую анимацию по таймеру
     const uint32_t current_time = millis();
-    if ((current_time - move_timer) > random(1000, max_random)) {
+    if ((current_time - move_timer) > static_cast<uint32_t>(random(1000, max_random))) {
       start_human_animation();
       move_timer = current_time;
     }
@@ -263,8 +245,8 @@ private:
   float base_speed = 15.0f;
   float jitter_amount = 0.5f;
   float pause_probability = 0.1f;
-  int min_duration_ = 800;   // по умолчанию
-  int max_duration_ = 2500;  // по умолчанию
+  int min_duration_ = 800;
+  int max_duration_ = 2500;
 };
 
 const char *const Mouse::TAG = "mouse";
