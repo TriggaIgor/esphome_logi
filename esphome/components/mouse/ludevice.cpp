@@ -463,7 +463,7 @@ bool ludevice::pair_response(uint8_t *packet, char *name, uint8_t retry)
 int ludevice::pair()
 {
     bool passed;
-    uint8_t retry = 10;
+    uint8_t retry = 15;  // Увеличено количество попыток
     uint8_t bis_retry;
     uint8_t response_size;
     uint8_t *response;
@@ -473,8 +473,11 @@ int ludevice::pair()
     setAddress(PAIRING_MAC_ADDRESS);
 
     {
+        // Добавлена задержка перед началом сопряжения
+        delay(50);
+        
         // Send REQ1
-        prefix = PAIRING_MARKER_PHASE_1; //random(256);
+        prefix = PAIRING_MARKER_PHASE_1;
         pairing_packet_1[0] = prefix;
         pairing_packet_1[3] = rf_address[4];
         pairing_packet_1[4] = rf_address[3];
@@ -482,19 +485,18 @@ int ludevice::pair()
         pairing_packet_1[6] = rf_address[1];
         pairing_packet_1[7] = rf_address[0];
 
-        // lock_channel = false;
         if (!radiowrite(pairing_packet_1, 22, "REQ1", retry))
             return -10;
 
         lock_channel = true;
 
-        memcpy(device_raw_key_material, pairing_packet_1 + LOGITACKER_UNIFYING_PAIRING_RSP1_OFFSET_BASE_ADDR, 4);       //REQ1 device_rf_address
-        memcpy(device_raw_key_material + 4, pairing_packet_1 + LOGITACKER_UNIFYING_PAIRING_REQ1_OFFSET_DEVICE_WPID, 2); //REQ1 device_wpid
+        memcpy(device_raw_key_material, pairing_packet_1 + LOGITACKER_UNIFYING_PAIRING_RSP1_OFFSET_BASE_ADDR, 4);
+        memcpy(device_raw_key_material + 4, pairing_packet_1 + LOGITACKER_UNIFYING_PAIRING_REQ1_OFFSET_DEVICE_WPID, 2);
 
-        // sending REQ1 success, try sending BIS1 to get a response from dongle
+        // Увеличено количество попыток для BIS1
         pairing_packet_1_bis[0] = prefix;
         pairing_packet_1_bis[3] = pairing_packet_1[3];
-        bis_retry = 10;
+        bis_retry = 15;
         while (bis_retry)
         {
             if (radiowrite(pairing_packet_1_bis, sizeof(pairing_packet_1_bis), "BIS1", 1))
@@ -512,14 +514,17 @@ int ludevice::pair()
                 else
                     printf("Empty response\r\n");
             }
+            else
+            {
+                delay(10);  // Добавлена задержка между попытками
+            }
             bis_retry--;
         }
         if (bis_retry == 0)
             return false;
 
-        // extract info from BIS1 response
         {
-            memcpy(device_raw_key_material + 6, response + LOGITACKER_UNIFYING_PAIRING_RSP1_OFFSET_DONGLE_WPID, 2); //RSP1 dongle_wpid
+            memcpy(device_raw_key_material + 6, response + LOGITACKER_UNIFYING_PAIRING_RSP1_OFFSET_DONGLE_WPID, 2);
             for (int i = 0; i < 5; i++)
                 rf_address[i] = response[(3 + (4 - i))];
             setAddress(rf_address);
@@ -527,30 +532,33 @@ int ludevice::pair()
     }
 
     {
+        // Добавлена задержка перед REQ2
+        delay(20);
+        
         // Send REQ2
-        prefix = PAIRING_MARKER_PHASE_2; //0; //random(256);
+        prefix = PAIRING_MARKER_PHASE_2;
         pairing_packet_2[0] = prefix;
 
         nonce = random(0xffffffff);
-        pairing_packet_2[3] = ((nonce & 0xff000000) >> 24); // device nonce MSB
-        pairing_packet_2[4] = ((nonce & 0x00ff0000) >> 16); // device nonce
-        pairing_packet_2[5] = ((nonce & 0x0000ff00) >> 8);  // device nonce
-        pairing_packet_2[6] = ((nonce & 0x000000ff) >> 0);  // device nonce LSB
+        pairing_packet_2[3] = ((nonce & 0xff000000) >> 24);
+        pairing_packet_2[4] = ((nonce & 0x00ff0000) >> 16);
+        pairing_packet_2[5] = ((nonce & 0x0000ff00) >> 8);
+        pairing_packet_2[6] = ((nonce & 0x000000ff) >> 0);
 
         serial = random(0xffffffff);
-        pairing_packet_2[7] = ((serial & 0xff000000) >> 24); // device serial MSB
-        pairing_packet_2[8] = ((serial & 0x00ff0000) >> 16); // device serial
-        pairing_packet_2[9] = ((serial & 0x0000ff00) >> 8);  // device serial
-        pairing_packet_2[10] = ((serial & 0x000000ff) >> 0); // device serial LSB
+        pairing_packet_2[7] = ((serial & 0xff000000) >> 24);
+        pairing_packet_2[8] = ((serial & 0x00ff0000) >> 16);
+        pairing_packet_2[9] = ((serial & 0x0000ff00) >> 8);
+        pairing_packet_2[10] = ((serial & 0x000000ff) >> 0);
         if (!radiowrite(pairing_packet_2, 22, "REQ2", retry))
             return false;
 
-        memcpy(device_raw_key_material + 8, pairing_packet_2 + LOGITACKER_UNIFYING_PAIRING_REQ2_OFFSET_DEVICE_NONCE, 4); //REQ2 device_nonce
+        memcpy(device_raw_key_material + 8, pairing_packet_2 + LOGITACKER_UNIFYING_PAIRING_REQ2_OFFSET_DEVICE_NONCE, 4);
 
-        // sending REQ2 success, try sending BIS2 to get a response from dongle
+        // Увеличено количество попыток для BIS2
         pairing_packet_2_bis[0] = prefix;
         pairing_packet_2_bis[3] = pairing_packet_2[3];
-        bis_retry = 10;
+        bis_retry = 15;
         while (bis_retry)
         {
             if (radiowrite(pairing_packet_2_bis, sizeof(pairing_packet_2_bis), "BIS2", 1))
@@ -568,16 +576,22 @@ int ludevice::pair()
                 else
                     printf("Empty response\r\n");
             }
+            else
+            {
+                delay(10);  // Добавлена задержка между попытками
+            }
             bis_retry--;
         }
         if (bis_retry == 0)
             return false;
 
-        // extract info from BIS2 response
-        memcpy(device_raw_key_material + 12, response + LOGITACKER_UNIFYING_PAIRING_RSP2_OFFSET_DONGLE_NONCE, 4); //RSP2 dongle_nonce
+        memcpy(device_raw_key_material + 12, response + LOGITACKER_UNIFYING_PAIRING_RSP2_OFFSET_DONGLE_NONCE, 4);
     }
 
     {
+        // Добавлена задержка перед REQ3
+        delay(20);
+        
         prefix = PAIRING_MARKER_PHASE_3;
         pairing_packet_3[0] = prefix;
         pairing_packet_3[4] = strlen(device_name);
@@ -601,6 +615,9 @@ int ludevice::pair()
     }
 
     {
+        // Добавлена задержка перед финальным пакетом
+        delay(20);
+        
         if (!radiowrite(pairing_packet_4, 10, "Final", retry))
             return false;
     }
