@@ -763,8 +763,7 @@ void ludevice::move(uint16_t x_move, uint16_t y_move, uint8_t scroll_v, uint8_t 
     mouse_payload[8] = scroll_h;
 
     setChecksum(mouse_payload, 10);
-    while (!radio.write(mouse_payload, 10, 0))
-        ;
+    radio.write(mouse_payload, 10, 0);
 
     radio.flush_rx();
 }
