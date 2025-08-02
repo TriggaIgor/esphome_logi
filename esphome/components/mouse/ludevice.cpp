@@ -343,8 +343,9 @@ void ludevice::loop() {
 }
 
 void ludevice::stay_alive_keyboard() {
+    uint16_t interval = _is_connected ? keep_alive : 1000;
     // Упрощенная логика отправки keep-alive
-    if (send_alive_timer > keep_alive) {
+    if (send_alive_timer > interval) {
         // В режиме ожидания отправляем с минимальными попытками
         uint8_t attempts = is_connected ? 3 : 1;
         
@@ -650,9 +651,8 @@ uint8_t ludevice::read(uint8_t *&packet)
             printf("%s\r\n", hexs(packet, packet_size));
         }
      
-        if (!is_connected) {
-            is_connected = true;
-            keep_alive_mode = false;
+        if (!_is_connected) {
+            _is_connected = true;
             printf("ludevice: %s\r\n", "Connection established by incoming packet");
         }
         
