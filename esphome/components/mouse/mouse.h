@@ -146,8 +146,8 @@ class Mouse : public switch_::Switch, public PollingComponent {
     
     // Если достигли цели
     if (distance < 0.5f) {
-      animation_state = ANIMATION_IDLE;
-      return;
+        animation_state = ANIMATION_IDLE;
+        return;
     }
     
     // Нормализованный вектор направления
@@ -156,37 +156,41 @@ class Mouse : public switch_::Switch, public PollingComponent {
     
     // Управление ускорением в зависимости от фазы
     switch (animation_state) {
-      case ANIMATION_ACCELERATING:
-        acceleration.x = dir_x * acceleration_rate;
-        acceleration.y = dir_y * acceleration_rate;
-        
-        // Переход к равномерному движению
-        if (std::sqrt(velocity.x*velocity.x + velocity.y*velocity.y) >= movement_speed) {
-          animation_state = ANIMATION_MOVING;
-        }
-        break;
-        
-      case ANIMATION_MOVING:
-        // Поддерживаем постоянную скорость
-        acceleration.x = 0;
-        acceleration.y = 0;
-        
-        // Начинаем тормозить при приближении к цели
-        if (distance < 50.0f) {
-          animation_state = ANIMATION_DECELERATING;
-        }
-        break;
-        
-      case ANIMATION_DECELERATING:
-        // Торможение пропорционально оставшемуся расстоянию
-        float brake_factor = std::min(1.0f, distance / 30.0f);
-        acceleration.x = -velocity.x * deceleration_rate * brake_factor;
-        acceleration.y = -velocity.y * deceleration_rate * brake_factor;
-        break;
-      
-      case ANIMATION_IDLE:
+        case ANIMATION_IDLE:
+            // Не должно происходить, но на случай если вызвали по ошибке
+            return;
+            
+        case ANIMATION_ACCELERATING:
+            acceleration.x = dir_x * acceleration_rate;
+            acceleration.y = dir_y * acceleration_rate;
+            
+            // Переход к равномерному движению
+            if (std::sqrt(velocity.x*velocity.x + velocity.y*velocity.y) >= movement_speed) {
+                animation_state = ANIMATION_MOVING;
+            }
+            break;
+            
+        case ANIMATION_MOVING:
+            // Поддерживаем постоянную скорость
+            acceleration.x = 0;
+            acceleration.y = 0;
+            
+            // Начинаем тормозить при приближении к цели
+            if (distance < 50.0f) {
+                animation_state = ANIMATION_DECELERATING;
+            }
+            break;
+            
+        case ANIMATION_DECELERATING:
+            // Торможение пропорционально оставшемуся расстоянию
+            float brake_factor = std::min(1.0f, distance / 30.0f);
+            acceleration.x = -velocity.x * deceleration_rate * brake_factor;
+            acceleration.y = -velocity.y * deceleration_rate * brake_factor;
+            break;
+            
         default:
-            // Ничего не делаем в состоянии покоя или при неизвестном состоянии
+            // Защита на случай неожиданных состояний
+            animation_state = ANIMATION_IDLE;
             return;
     }
     
@@ -197,8 +201,8 @@ class Mouse : public switch_::Switch, public PollingComponent {
     // Ограничение максимальной скорости
     float current_speed = std::sqrt(velocity.x*velocity.x + velocity.y*velocity.y);
     if (current_speed > max_speed) {
-      velocity.x = velocity.x * max_speed / current_speed;
-      velocity.y = velocity.y * max_speed / current_speed;
+        velocity.x = velocity.x * max_speed / current_speed;
+        velocity.y = velocity.y * max_speed / current_speed;
     }
     
     const float scale_factor = 2.0f; // Увеличиваем амплитуду в 2 раза
