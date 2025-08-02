@@ -181,17 +181,19 @@ class Mouse : public switch_::Switch, public PollingComponent {
             }
             break;
             
-        case ANIMATION_DECELERATING:
-            // Торможение пропорционально оставшемуся расстоянию
+        case ANIMATION_DECELERATING: {
+            // Область видимости для объявления переменных
             float brake_factor = std::min(1.0f, distance / 30.0f);
             acceleration.x = -velocity.x * deceleration_rate * brake_factor;
             acceleration.y = -velocity.y * deceleration_rate * brake_factor;
             break;
+        }
             
-        default:
+        default: {
             // Защита на случай неожиданных состояний
             animation_state = ANIMATION_IDLE;
             return;
+        }
     }
     
     // Обновляем скорость с ограничением
