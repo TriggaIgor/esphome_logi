@@ -43,15 +43,11 @@ bool ludevice::begin()
 {
     uint8_t init_status = radio.begin();
 
-    // radio.printDetails();
-
     if (init_status == 0 || init_status == 0xff)
     {
         return false;
     }
 
-    // aes_base = 0x5897AF67;
-    // aes_base = 0x5897AF60;
     aes_base = random(0xfffffff + 1) << 4;
 
     EEPROM.begin(sizeof(current_channel) + sizeof(rf_address) + sizeof(device_key));
@@ -59,11 +55,27 @@ bool ludevice::begin()
     EEPROM.get(MAC_ADDRESS_EEPROM_ADDRESS + 1, rf_address);
     EEPROM.get(MAC_ADDRESS_EEPROM_ADDRESS + 1 + 5, device_key);
 
+    // Проверка валидности данных EEPROM
+    bool eeprom_valid = true;
+    for (int i = 0; i < 5; i++) {
+        if (rf_address[i] == 0xFF || rf_address[i] == 0x00) {
+            eeprom_valid = false;
+            break;
+        }
+    }
+    
+    if (!eeprom_valid) {
+        // Генерируем случайный адрес
+        for (int i = 0; i < 5; i++) {
+            rf_address[i] = random(256);
+        }
+        current_channel = channel_tx[0];
+    }
+
     radio.stopListening();
-    if (1)
     {
         const uint8_t retryCount = 3;
-        const uint8_t retryDelay = 1; // 250us * 1
+        const uint8_t retryDelay = 1;
 
         radio.setAutoAck(true);
         radio.setRetries(retryDelay, retryCount);
@@ -77,29 +89,12 @@ bool ludevice::begin()
         changeChannel();
         radio.setDataRate(RF24_2MBPS);
         {
-            // writeRegister(SETUP_AW, 0x03); // Reset addr size to 5 bytes
             digitalWrite(DEFAULT_CS_PIN, LOW);
             SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x3));
             SPI.transfer(0x03);
             digitalWrite(DEFAULT_CS_PIN, HIGH);
         }
     }
-    radio.stopListening();
-
-    // radio.openWritingPipe(PAIRING_MAC_ADDRESS);
-    // radio.openReadingPipe(1, PAIRING_MAC_ADDRESS);
-    // radio.setAutoAck(1);
-
-    // radio.setPALevel(RF24_PA_MAX);
-
-    // radio.setDataRate(RF24_2MBPS);
-    // radio.setPayloadSize(PAYLOAD_SIZE);
-    // radio.enableDynamicPayloads();
-    // radio.enableAckPayload();
-    // radio.enableDynamicAck();
-    // radio.setRetries(3, 1);
-    // changeChannel();
-
     radio.stopListening();
 
     return true;
