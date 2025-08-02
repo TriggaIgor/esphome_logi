@@ -62,8 +62,12 @@ bool ludevice::begin()
     radio.stopListening();
     if (1)
     {
-        radio.setAutoAck(1);
-        radio.setRetries(3, 1);
+        const uint8_t retryCount = 3;
+        const uint8_t retryDelay = 1; // 250us * 1
+
+        radio.setAutoAck(true);
+        radio.setRetries(retryDelay, retryCount);
+        radio.setChannel(current_channel);
         radio.setPayloadSize(PAYLOAD_SIZE);
         radio.enableDynamicPayloads();
         radio.enableAckPayload();
