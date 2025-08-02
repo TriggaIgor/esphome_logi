@@ -323,7 +323,7 @@ public:
     ludevice();
     bool has_saved_connection(); 
     bool begin();
-
+    bool connected() const { return is_connected || keep_alive_mode; }
     int pair();
     bool pairing();
     bool pair_response(uint8_t *packet, const char *name, uint8_t retry);
