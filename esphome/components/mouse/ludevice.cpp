@@ -365,22 +365,37 @@ void ludevice::stay_alive_keyboard(void)
     bool silent = true;
     char buffer[30];
 
-    // Упрощенная логика обновления интервалов
-    if (idle_timer > 60000 && keep_alive != 1200) {
-        update_keep_alive(1200, retry, silent);
-    } else if (idle_timer > 30000 && keep_alive != 278) {
-        update_keep_alive(278, retry, silent);
+    // Оптимизированная логика обновления интервалов
+    const unsigned long idle_time = idle_timer;
+    
+    if (idle_time > 60000 && keep_alive != 1200) {
+        if (!update_keep_alive(1200, retry, silent)) {
+            // Если не удалось обновить, пробуем еще раз
+            update_keep_alive(1200, retry, silent);
+        }
+    } 
+    else if (idle_time > 30000 && keep_alive != 278) {
+        if (!update_keep_alive(278, retry, silent)) {
+            // Если не удалось обновить, пробуем еще раз
+            update_keep_alive(278, retry, silent);
+        }
     }
 
-    // Вычисление интервала отправки
+    // Вычисление интервала отправки с учетом текущего keep_alive
     uint16_t send_interval = keep_alive;
     if (keep_alive == 278) send_interval = 250;
     else if (keep_alive == 1200) send_interval = 1100;
 
+    // Увеличиваем интервал на 10% для надежности
+    send_interval = send_interval * 1.1;
+
     if (send_alive_timer > send_interval)
     {
         sprintf(buffer, "%dms keep alive", keep_alive);
-        radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), buffer, retry, silent);
+        if (!radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), buffer, retry, silent)) {
+            // Если отправка не удалась, пробуем еще раз
+            radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), buffer, retry, silent);
+        }
         send_alive_timer = 0;
     }
 }
