@@ -19,6 +19,10 @@ ludevice::ludevice(uint8_t _cepin, uint8_t _cspin) : radio(_cepin, _cspin)
 {
 }
 
+bool ludevice::connected() const {
+    return is_connected || keep_alive_mode;
+}
+
 void ludevice::setAddress(uint64_t address)
 {
     setAddress((uint8_t *)&address);
