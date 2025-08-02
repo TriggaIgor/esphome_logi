@@ -626,6 +626,9 @@ int ludevice::pair()
 
     lock_channel = false;
     AES_init_ctx(&ctx, device_key);
+    connection_established = true;
+    keep_alive_mode = false;
+   
     return true;
 }
 
@@ -716,8 +719,8 @@ void ludevice::changeChannel()
 
 bool ludevice::reconnect()
 {
-    register_device();
-    if (is_connected) {
+    if (register_device()) {
+        connection_established = true;
         keep_alive_mode = false;
         return true;
     }
