@@ -302,7 +302,7 @@ void ludevice::loop() {
         if (current_time - last_pair_attempt > PAIR_INTERVAL && 
             pair_attempt_count < MAX_PAIR_ATTEMPTS) {
             if (pair()) {
-                is_connected = true;
+                connection_established = true;
                 keep_alive_mode = false;
                 return;
             }
@@ -313,7 +313,7 @@ void ludevice::loop() {
         // 2. Если есть сохраненные данные - пытаемся переподключиться
         if (has_saved_connection() && !keep_alive_mode) {
             if (reconnect()) {
-                is_connected = true;
+                connection_established = true;
                 keep_alive_mode = false;
                 return;
             }
@@ -333,7 +333,7 @@ void ludevice::loop() {
         
         // Если получили ответ - считаем что подключены
         if (!is_connected) {
-            is_connected = true;
+            connection_established = true;
             keep_alive_mode = false;
         }
     }
@@ -347,13 +347,13 @@ void ludevice::stay_alive_keyboard() {
     // Упрощенная логика отправки keep-alive
     if (send_alive_timer > interval) {
         // В режиме ожидания отправляем с минимальными попытками
-        uint8_t attempts = is_connected ? 3 : 1;
+        uint8_t attempts = connection_established ? 3 : 1;
         
         // Формируем информационное сообщение
         char buffer[40];
         snprintf(buffer, sizeof(buffer), "%dms keep-alive (%s)", 
                  keep_alive, 
-                 is_connected ? "connected" : "searching");
+                 connection_established ? "connected" : "searching");
         
         radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), 
                      buffer, attempts, !is_connected);
@@ -766,7 +766,7 @@ bool ludevice::register_device()
     if (!update_keep_alive(110, 5, false))
         return false;
 
-    is_connected = true;
+    connection_established = true;
     AES_init_ctx(&ctx, device_key);
     return true;
 #endif
