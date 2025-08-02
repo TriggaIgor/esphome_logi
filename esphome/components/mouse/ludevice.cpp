@@ -112,10 +112,9 @@ void ludevice::setChecksum(uint8_t *payload, uint8_t len)
 
 void ludevice::hidpp10(uint8_t *rf_payload, uint8_t payload_size)
 {
-    // Упрощенная и оптимизированная версия
     uint8_t rf_response[22] = {0};
-    uint8_t reply = 0;
-    const char* name = "UNKNOWN";
+    uint8_t reply = 22;
+    const char *name = "UNKNOWN PACKET!!! PLEASE TEST AT DONGLE SIDE!!!"; // исправлено
 
     // Базовые параметры ответа
     rf_response[0] = rf_payload[0];
@@ -192,7 +191,7 @@ void ludevice::hidpp20(uint8_t *rf_payload, uint8_t payload_size)
 
     uint8_t rf_response[22] = {0};
     uint8_t reply = 22;
-    char *name;
+    const char *name = ""; // исправлено
 
     rf_response[0] = rf_payload[0];
     rf_response[1] = 0x51;
@@ -369,7 +368,7 @@ bool ludevice::update_keep_alive(uint16_t timeout, uint8_t retry, bool silent)
     return false;
 }
 
-bool ludevice::pair_response(uint8_t *packet, char *name, uint8_t retry)
+bool ludevice::pair_response(uint8_t *packet, const char *name, uint8_t retry)
 {
     while (retry)
     {
@@ -611,12 +610,12 @@ uint8_t ludevice::read(uint8_t *&packet)
     return 0;
 }
 
-bool ludevice::radiowrite(uint8_t *packet, uint8_t packet_size, char *name, uint8_t retry)
+bool ludevice::radiowrite(uint8_t *packet, uint8_t packet_size, const char *name, uint8_t retry)
 {
     return radiowrite_ex(packet, packet_size, name, retry, false);
 }
 
-bool ludevice::radiowrite_ex(uint8_t *packet, uint8_t packet_size, char *name, uint8_t retry, bool silent)
+bool ludevice::radiowrite_ex(uint8_t *packet, uint8_t packet_size, const char *name, uint8_t retry, bool silent)
 {
     bool success = false;
     uint8_t attempts = retry;
