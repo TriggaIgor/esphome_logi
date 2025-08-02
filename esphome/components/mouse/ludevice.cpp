@@ -343,19 +343,21 @@ void ludevice::hidpp20(uint8_t *rf_payload, uint8_t payload_size)
 
 void ludevice::loop(void)
 {
-    uint8_t response_size = 0;
     if (!is_connected)
         return;
 
-    uint8_t *rf_payload;
-
-    if (radio.available())
+    // Ограничиваем количество обработки за один вызов
+    uint8_t max_packets = 3;
+    uint8_t processed = 0;
+    
+    while (radio.available() && processed < max_packets)
     {
-        response_size = read(rf_payload);
+        uint8_t *rf_payload;
+        uint8_t response_size = read(rf_payload);
         hidpp10(rf_payload, response_size);
-        // hidpp20(rf_payload, response_size);
+        processed++;
     }
-    // stay_alive_mouse();
+
     stay_alive_keyboard();
 }
 
