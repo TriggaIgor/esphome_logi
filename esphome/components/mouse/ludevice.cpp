@@ -295,7 +295,7 @@ void ludevice::hidpp20(uint8_t *rf_payload, uint8_t payload_size)
 
 void ludevice::loop() {
     // Пытаемся восстановить подключение, если не подключены
-    if (!is_connected) {
+    if (! connection_established) {
         uint32_t current_time = millis();
         
         // 1. Периодические попытки сопряжения (каждые 30 сек, максимум 5 попыток)
@@ -332,7 +332,7 @@ void ludevice::loop() {
         processed++;
         
         // Если получили ответ - считаем что подключены
-        if (!is_connected) {
+        if (! connection_established) {
             connection_established = true;
             keep_alive_mode = false;
         }
@@ -356,7 +356,7 @@ void ludevice::stay_alive_keyboard() {
                  connection_established ? "connected" : "searching");
         
         radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), 
-                     buffer, attempts, !is_connected);
+                     buffer, attempts, ! connection_established);
         
         send_alive_timer = 0;
     }
