@@ -96,7 +96,30 @@ bool ludevice::begin()
         }
     }
     radio.stopListening();
+    pair_attempt_count = 0;
+    last_pair_attempt = millis();
+    is_pairing = true;
+ 
+    return true;
+}
 
+bool ludevice::has_saved_connection() {
+    // Проверяем что в EEPROM есть валидные данные
+    uint8_t zero_addr[5] = {0};
+    uint8_t ff_addr[5] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    
+    // Проверяем что адрес не нулевой и не FF:FF:FF:FF:FF
+    if (memcmp(rf_address, zero_addr, 5) == 0 || 
+        memcmp(rf_address, ff_addr, 5) == 0) {
+        return false;
+    }
+    
+    // Проверяем что ключ не нулевой
+    uint8_t zero_key[16] = {0};
+    if (memcmp(device_key, zero_key, 16) == 0) {
+        return false;
+    }
+    
     return true;
 }
 
@@ -272,56 +295,60 @@ void ludevice::hidpp20(uint8_t *rf_payload, uint8_t payload_size)
 
 void ludevice::loop(void)
 {
-    if (!is_connected)
-        return;
-
-    // Ограничиваем количество обработки за один вызов
-    uint8_t max_packets = 1;
-    uint8_t processed = 0;
-    
-    while (radio.available() && processed < max_packets)
-    {
-        uint8_t *rf_payload;
-        uint8_t response_size = read(rf_payload);
-        hidpp10(rf_payload, response_size);
-        processed++;
+    // Режим постоянных попыток восстановления
+    if (!is_connected) {
+        uint32_t current_time = millis();
+        
+        // 1. Периодические попытки сопряжения
+        if (current_time - last_pair_attempt > PAIR_INTERVAL && 
+            pair_attempt_count < MAX_PAIR_ATTEMPTS) {
+            if (pair()) {
+                is_connected = true;
+                keep_alive_mode = false;
+                return;
+            }
+            pair_attempt_count++;
+            last_pair_attempt = current_time;
+        }
+        
+        // 2. Если есть сохраненные данные - пытаемся переподключиться
+        if (has_saved_connection() && !keep_alive_mode) {
+            if (reconnect()) {
+                return;
+            }
+            // После неудачных попыток переходим в режим keep-alive
+            keep_alive_mode = true;
+        }
+        
+        // 3. Режим только отправки keep-alive
+        if (keep_alive_mode) {
+            stay_alive_keyboard();
+        }
     }
+    else {
 
-    stay_alive_keyboard();
+      // Ограничиваем количество обработки за один вызов
+      uint8_t max_packets = 1;
+      uint8_t processed = 0;
+      
+      while (radio.available() && processed < max_packets)
+      {
+          uint8_t *rf_payload;
+          uint8_t response_size = read(rf_payload);
+          hidpp10(rf_payload, response_size);
+          processed++;
+      }
+      stay_alive_keyboard();
+    }
 }
 
-void ludevice::stay_alive_keyboard(void)
-{
-    static uint32_t last_check = 0;
-    static uint16_t send_interval = 0;
-    const uint32_t now = millis();
-
-    // Проверяем условия обновления не чаще 1 раза в секунду
-    if (now - last_check > 1000) {
-        last_check = now;
-        
-        const unsigned long idle_time = idle_timer;
-        uint16_t new_keep_alive = keep_alive;
-
-        if (idle_time > 60000) {
-            new_keep_alive = 1200;
-        } else if (idle_time > 30000) {
-            new_keep_alive = 278;
-        }
-
-        if (new_keep_alive != keep_alive) {
-            update_keep_alive(new_keep_alive, 3, true);
-        }
-
-        // Вычисляем интервал отправки
-        send_interval = (keep_alive == 278) ? 250 : 
-                       (keep_alive == 1200) ? 1100 : keep_alive;
-    }
-
-    // Отправка keep-alive
-    if (send_alive_timer > send_interval)
-    {
-        radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), "keep-alive", 1, true);
+void ludevice::stay_alive_keyboard() {
+    // Упрощенная версия без сложной логики
+    if (send_alive_timer > keep_alive) {
+        // Уменьшаем количество попыток в режиме ожидания
+        uint8_t attempts = is_connected ? 3 : 1;
+        radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), 
+                     "keep-alive", attempts, true);
         send_alive_timer = 0;
     }
 }
@@ -674,7 +701,12 @@ void ludevice::changeChannel()
 
 bool ludevice::reconnect()
 {
-    return register_device();
+    register_device();
+    if (is_connected) {
+        keep_alive_mode = false;
+        return true;
+    }
+    return false;
 }
 
 bool ludevice::register_device()
