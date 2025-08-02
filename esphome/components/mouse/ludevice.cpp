@@ -851,18 +851,17 @@ void ludevice::wipe_pairing(void)
 
 char *ludevice::hexs_ex(uint8_t *x, uint8_t length, bool reverse, char separator)
 {
-    uint8_t c;
-    _hexs[0] = 0;
+    char *ptr = _hexs;
     for (int i = 0; i < length; i++)
     {
-        c = x[i];
-        if (reverse)
-            c = x[length - 1 - i];
-        sprintf(_hexs + (i * 3), "%02X", c);
-        if (i < length - 1)
-            sprintf(_hexs + (i * 3) + 2, "%c", separator);
+        uint8_t index = reverse ? (length - 1 - i) : i;
+        ptr += sprintf(ptr, "%02X", x[index]);
+        
+        if (i < length - 1) {
+            *ptr++ = separator;
+        }
     }
-
+    *ptr = '\0';
     return _hexs;
 }
 
