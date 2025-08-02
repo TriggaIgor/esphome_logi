@@ -219,36 +219,27 @@ class Mouse : public switch_::Switch, public PollingComponent {
     kespb.move(move_x, move_y);
   }
 
-update() override {
-    kespb.loop(); // Поддерживаем соединение
-    
-    if (!enable) return;
-    
-    // Проверяем состояние подключения
-    bool is_connected = kespb.connected();
-    
-    // Обрабатываем анимацию только если подключены
-    if (is_connected && animation_state != ANIMATION_IDLE) {
-      physics_step();
-    }
-    
-    // Запускаем новое движение по таймеру только если подключены
-    const uint32_t current_time = millis();
-    if (is_connected && 
-        animation_state == ANIMATION_IDLE && 
-        (current_time - move_timer) > static_cast<uint32_t>(random(5000, max_random))) {
-      start_human_animation();
-      move_timer = current_time;
-    }
-}
-    
-    // Запускаем новое движение по таймеру
-    const uint32_t current_time = millis();
-    if (animation_state == ANIMATION_IDLE && 
-        (current_time - move_timer) > static_cast<uint32_t>(random(5000, max_random))) {
-      start_human_animation();
-      move_timer = current_time;
-    }
+  void update() override {
+      kespb.loop(); // Поддерживаем соединение
+      
+      if (!enable) return;
+      
+      // Проверяем состояние подключения
+      bool is_connected = kespb.connected();
+      
+      // Обрабатываем анимацию только если подключены
+      if (is_connected && animation_state != ANIMATION_IDLE) {
+        physics_step();
+      }
+      
+      // Запускаем новое движение по таймеру только если подключены
+      const uint32_t current_time = millis();
+      if (is_connected && 
+          animation_state == ANIMATION_IDLE && 
+          (current_time - move_timer) > static_cast<uint32_t>(random(5000, max_random))) {
+        start_human_animation();
+        move_timer = current_time;
+      }
   }
   
   // Методы для конфигурации
