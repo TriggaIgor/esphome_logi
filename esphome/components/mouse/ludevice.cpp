@@ -481,6 +481,10 @@ bool ludevice::pair_response(uint8_t *packet, char *name, uint8_t retry)
     return true;
 }
 
+void ludevice::copy_key_material(uint8_t* dest, const uint8_t* src, size_t len) {
+    memcpy(dest, src, len);
+}
+
 int ludevice::pair()
 {
     bool passed;
@@ -509,8 +513,8 @@ int ludevice::pair()
 
         lock_channel = true;
 
-        memcpy(device_raw_key_material, pairing_packet_1 + LOGITACKER_UNIFYING_PAIRING_RSP1_OFFSET_BASE_ADDR, 4);       //REQ1 device_rf_address
-        memcpy(device_raw_key_material + 4, pairing_packet_1 + LOGITACKER_UNIFYING_PAIRING_REQ1_OFFSET_DEVICE_WPID, 2); //REQ1 device_wpid
+        copy_key_material(device_raw_key_material, pairing_packet_1 + LOGITACKER_UNIFYING_PAIRING_RSP1_OFFSET_BASE_ADDR, 4);       //REQ1 device_rf_address
+        copy_key_material(device_raw_key_material + 4, pairing_packet_1 + LOGITACKER_UNIFYING_PAIRING_REQ1_OFFSET_DEVICE_WPID, 2); //REQ1 device_wpid
 
         // sending REQ1 success, try sending BIS1 to get a response from dongle
         pairing_packet_1_bis[0] = prefix;
@@ -540,7 +544,7 @@ int ludevice::pair()
 
         // extract info from BIS1 response
         {
-            memcpy(device_raw_key_material + 6, response + LOGITACKER_UNIFYING_PAIRING_RSP1_OFFSET_DONGLE_WPID, 2); //RSP1 dongle_wpid
+            copy_key_material(device_raw_key_material + 6, response + LOGITACKER_UNIFYING_PAIRING_RSP1_OFFSET_DONGLE_WPID, 2); //RSP1 dongle_wpid
             for (int i = 0; i < 5; i++)
                 rf_address[i] = response[(3 + (4 - i))];
             setAddress(rf_address);
@@ -566,7 +570,7 @@ int ludevice::pair()
         if (!radiowrite(pairing_packet_2, 22, "REQ2", retry))
             return false;
 
-        memcpy(device_raw_key_material + 8, pairing_packet_2 + LOGITACKER_UNIFYING_PAIRING_REQ2_OFFSET_DEVICE_NONCE, 4); //REQ2 device_nonce
+        copy_key_material(device_raw_key_material + 8, pairing_packet_2 + LOGITACKER_UNIFYING_PAIRING_REQ2_OFFSET_DEVICE_NONCE, 4); //REQ2 device_nonce
 
         // sending REQ2 success, try sending BIS2 to get a response from dongle
         pairing_packet_2_bis[0] = prefix;
@@ -595,14 +599,14 @@ int ludevice::pair()
             return false;
 
         // extract info from BIS2 response
-        memcpy(device_raw_key_material + 12, response + LOGITACKER_UNIFYING_PAIRING_RSP2_OFFSET_DONGLE_NONCE, 4); //RSP2 dongle_nonce
+        copy_key_material(device_raw_key_material + 12, response + LOGITACKER_UNIFYING_PAIRING_RSP2_OFFSET_DONGLE_NONCE, 4); //RSP2 dongle_nonce
     }
 
     {
         prefix = PAIRING_MARKER_PHASE_3;
         pairing_packet_3[0] = prefix;
         pairing_packet_3[4] = strlen(device_name);
-        memcpy(pairing_packet_3 + 5, device_name, pairing_packet_3[4]);
+        copy_key_material(pairing_packet_3 + 5, device_name, pairing_packet_3[4]);
 
         if (!radiowrite(pairing_packet_3, 22, "REQ3", retry))
             return false;
@@ -832,11 +836,7 @@ void ludevice::move(uint16_t x_move, uint16_t y_move, uint8_t scroll_v, uint8_t 
 
     memcpy(mouse_payload + 4, &cursor_velocity, 3);
 
-    if (leftClick)
-        mouse_payload[2] = 1;
-
-    if (rightClick)
-        mouse_payload[2] |= 2; //1 << 1;
+    mouse_payload[2] = (leftClick ? 1 : 0) | (rightClick ? 2 : 0);
 
     mouse_payload[7] = scroll_v;
     mouse_payload[8] = scroll_h;
