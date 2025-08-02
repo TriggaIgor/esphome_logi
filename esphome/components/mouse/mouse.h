@@ -183,6 +183,11 @@ class Mouse : public switch_::Switch, public PollingComponent {
         acceleration.x = -velocity.x * deceleration_rate * brake_factor;
         acceleration.y = -velocity.y * deceleration_rate * brake_factor;
         break;
+      
+      case ANIMATION_IDLE:
+        default:
+            // Ничего не делаем в состоянии покоя или при неизвестном состоянии
+            return;
     }
     
     // Обновляем скорость с ограничением
