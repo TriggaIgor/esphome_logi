@@ -73,15 +73,6 @@ class Mouse : public switch_::Switch, public PollingComponent {
     ESP_LOGD(TAG, "Initializing mouse device");
     kespb.begin();
     publish_state(true);
-    
-    for (int i = 0; i < 10; i++) {
-      if (kespb.reconnect() || pair()) {
-        ESP_LOGD(TAG, "Connection established");
-        return;
-      }
-      yield();
-    }
-    ESP_LOGW(TAG, "Failed to initialize device");
   }
 
 
@@ -230,7 +221,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
 
   void update() override {
     kespb.loop(); // Поддерживаем соединение
-    
+
     if (!enable) return;
     
     // Обрабатываем анимацию
