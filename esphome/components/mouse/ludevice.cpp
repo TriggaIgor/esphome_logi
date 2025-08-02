@@ -731,13 +731,36 @@ bool ludevice::radiowrite_ex(uint8_t *packet, uint8_t packet_size, char *name, u
 
     // retry = 1;
     outcome = '!';
-    for (uint8_t attempt = 0; attempt < retry; attempt++) {
-        if (radio.write(packet, packet_size)) {
-            // успешная отправка
-            break;
+    while (retry)
+    {
+        setChecksum(packet, packet_size);
+        if (radio.write(packet, packet_size))
+            outcome = ' ';
+        else
+            retry--;
+
+        if (!silent)
+        {
+            // printf("OUT[%2d]: %2d  %s %c ", packet_size, current_channel, hexa(rf_address, 5), outcome);
+            // printf("%d OUT[%2d]:  %s  %2d %c ", millis(), packet_size, hexa(rf_address, 5), current_channel, outcome);
+            printf("OUT[%2d]:  %s  %2d %c ", packet_size, hexa(rf_address, 5), current_channel, outcome);
+            printf("%s", hexs(packet, packet_size));
+            if (name != NULL)
+                printf(" - %s\r\n", name);
+            else
+                printf("\r\n");
         }
-        if (!lock_channel) changeChannel();
-    }
+
+        if (outcome == '!')
+        {
+            if (!lock_channel)
+            {
+                changeChannel();
+            }
+        }
+        else
+            break;
+    };
 
     if (outcome == '!')
         return false;
