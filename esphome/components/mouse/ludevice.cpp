@@ -110,21 +110,20 @@ void ludevice::setChecksum(uint8_t *payload, uint8_t len)
     payload[len - 1] = -checksum;
 }
 
-void ludevice::hidpp10(uint8_t *rf_payload, uint8_t payload_size)
-{
+void ludevice::hidpp10(uint8_t *rf_payload, uint8_t payload_size) {
     uint8_t rf_response[22] = {0};
-    uint8_t reply = 22;
-    const char *name = "UNKNOWN PACKET!!! PLEASE TEST AT DONGLE SIDE!!!"; // исправлено
+    uint8_t reply = 0;
+    const char *name = "default reply";
 
     // Базовые параметры ответа
     rf_response[0] = rf_payload[0];
-    rf_response[1] = 0x40 | rf_payload[1];
+    rf_response[1] = 0x40 | rf_payload[1]; // Сохраняем тип отчета
     rf_response[2] = rf_payload[2];
     rf_response[3] = rf_payload[3];
     rf_response[4] = rf_payload[4];
 
-    // Только обработка критичных запросов
-    if (rf_payload[3] == 0x81) { // GET_REGISTER
+    // Обработка критичных запросов
+    if (rf_payload[3] == 0x81) {
         uint32_t addr_param = (rf_payload[4] << 8) + (rf_payload[5]);
         
         if (addr_param == 0xd00) { // HIDPP_REG_BATTERY_MILEAGE
@@ -143,8 +142,18 @@ void ludevice::hidpp10(uint8_t *rf_payload, uint8_t payload_size)
         }
     }
 
-    if (reply && (rf_payload[1] == 0x10 || rf_payload[1] == 0x11))
-    {
+    // Обработка по умолчанию для неизвестных пакетов
+    if (reply == 0 && (rf_payload[1] == 0x10 || rf_payload[1] == 0x11)) {
+        if (rf_payload[1] == 0x10) { // short report
+            reply = 10;
+            memset(rf_response+5, 0, 4); // Нулевые данные
+        } else if (rf_payload[1] == 0x11) { // long report
+            reply = 22;
+            memset(rf_response+5, 0, 16); // Нулевые данные
+        }
+    }
+
+    if (reply && (rf_payload[1] == 0x10 || rf_payload[1] == 0x11)) {
         rf_response[1] = (reply == 10) ? 0x50 : 0x51;
         radiowrite(rf_response, reply, name, 1);
     }
