@@ -365,7 +365,7 @@ bool ludevice::update_keep_alive(uint16_t timeout, uint8_t retry, bool silent)
     keep_alive_change_packet[4] = ((timeout & 0x00ff));      // timeout
     setChecksum(keep_alive_change_packet, 10);
 
-    retry = 10;
+    retry = 3;
     sprintf(buffer, "set keep alive to %d ms", timeout);
     if (radiowrite_ex(keep_alive_change_packet, sizeof(keep_alive_change_packet), buffer, retry, silent))
     {
