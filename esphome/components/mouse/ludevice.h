@@ -9,6 +9,9 @@
         version 2 as published by the Free Software Foundation.
 */
 
+#define CHANNEL_PAIRING_COUNT 11
+#define CHANNEL_TX_COUNT 25
+
 #ifndef LOGITECH_MOUSE
 #define LOGITECH_MOUSE
 
@@ -117,16 +120,16 @@ private:
     uint8_t current_channel;
     uint8_t channel_pairing_id = -1;
     uint8_t channel_tx_id = -1;
-    uint8_t channel_pairing[11] = {62, 8, 35, 65, 14, 41, 71, 17, 44, 74, 5};
-    uint8_t channel_tx[25] = {5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77};
+    uint8_t channel_pairing[CHANNEL_PAIRING_COUNT] = {62, 8, 35, 65, 14, 41, 71, 17, 44, 74, 5};
+    uint8_t channel_tx[CHANNEL_TX_COUNT] = {5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77};
 
     bool lock_channel = false;
     bool is_connected = false;
-    char *success = "success";
-    char *failed = "failed";
-    char *status;
+    const char *success = "success";
+    const char *failed = "failed";
+    const char *status;
     uint8_t aes_counter = 0;
-    // uint32_t aes_base = 0x171df9f0;
+    // uint32_t aes_base = 0x171df9f0;er44
     uint32_t aes_base = 0xed3456ed;
 
     uint8_t *wakeup_packet;

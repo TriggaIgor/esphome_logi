@@ -54,7 +54,7 @@ bool ludevice::begin()
     // aes_base = 0x5897AF60;
     aes_base = random(0xfffffff + 1) << 4;
 
-    EEPROM.begin(1 + 5 + 16);
+    EEPROM.begin(sizeof(current_channel) + sizeof(rf_address) + sizeof(device_key));
     EEPROM.get(MAC_ADDRESS_EEPROM_ADDRESS + 0, current_channel);
     EEPROM.get(MAC_ADDRESS_EEPROM_ADDRESS + 1, rf_address);
     EEPROM.get(MAC_ADDRESS_EEPROM_ADDRESS + 1 + 5, device_key);
@@ -772,16 +772,13 @@ void ludevice::changeChannel()
 {
     if (is_pairing)
     {
-        channel_pairing_id++;
-        if (channel_pairing_id > sizeof(channel_tx))
-            channel_pairing_id = 0;
+        channel_pairing_id = (channel_pairing_id + 1) % CHANNEL_PAIRING_COUNT;
         current_channel = channel_pairing[channel_pairing_id];
+        radio.setChannel(current_channel);
     }
     else
-    {
-        channel_tx_id++;
-        if (channel_tx_id > sizeof(channel_tx))
-            channel_tx_id = 0;
+    {        
+        channel_tx_id = (channel_tx_id + 1) % CHANNEL_TX_COUNT;
         current_channel = channel_pairing[channel_tx_id];
     }
     current_channel = 32;
