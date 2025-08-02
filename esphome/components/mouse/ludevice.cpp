@@ -307,7 +307,7 @@ void ludevice::loop() {
         
         if (!connection_established) {
             connection_established = true;
-            println("Connection restored by incoming packet");
+            printf("%s","Connection restored by incoming packet");
         }
     }
 
@@ -734,7 +734,7 @@ void ludevice::changeChannel()
 bool ludevice::reconnect() {
     if (!has_saved_connection()) return false;
     
-    println("Attempting reconnect with saved data");
+    printf("%s","Attempting reconnect with saved data");
     
     // Увеличиваем время ожидания ответа
     radio.setRetries(3, 15); // 3*250мс + 15*250мс = ~4.5 сек
@@ -745,9 +745,9 @@ bool ludevice::reconnect() {
     radio.setRetries(1, 3); 
     
     if (success) {
-        println("Reconnect successful");
+        printf("%s","Reconnect successful");
     } else {
-        println("Reconnect failed");
+        printf("%s","Reconnect failed");
         changeChannel(); // Смена канала после неудачи
     }
     
