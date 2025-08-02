@@ -284,41 +284,36 @@ void ludevice::loop(void)
 
 void ludevice::stay_alive_keyboard(void)
 {
-    uint8_t retry = 5;
-    bool silent = true;
-    char buffer[30];
+    static uint32_t last_check = 0;
+    static uint16_t send_interval = 0;
+    const uint32_t now = millis();
 
-    // Оптимизированная логика обновления интервалов
-    const unsigned long idle_time = idle_timer;
-    
-    if (idle_time > 60000 && keep_alive != 1200) {
-        if (!update_keep_alive(1200, retry, silent)) {
-            // Если не удалось обновить, пробуем еще раз
-            update_keep_alive(1200, retry, silent);
+    // Проверяем условия обновления не чаще 1 раза в секунду
+    if (now - last_check > 1000) {
+        last_check = now;
+        
+        const unsigned long idle_time = idle_timer;
+        uint16_t new_keep_alive = keep_alive;
+
+        if (idle_time > 60000) {
+            new_keep_alive = 1200;
+        } else if (idle_time > 30000) {
+            new_keep_alive = 278;
         }
-    } 
-    else if (idle_time > 30000 && keep_alive != 278) {
-        if (!update_keep_alive(278, retry, silent)) {
-            // Если не удалось обновить, пробуем еще раз
-            update_keep_alive(278, retry, silent);
+
+        if (new_keep_alive != keep_alive) {
+            update_keep_alive(new_keep_alive, 3, true);
         }
+
+        // Вычисляем интервал отправки
+        send_interval = (keep_alive == 278) ? 250 : 
+                       (keep_alive == 1200) ? 1100 : keep_alive;
     }
 
-    // Вычисление интервала отправки с учетом текущего keep_alive
-    uint16_t send_interval = keep_alive;
-    if (keep_alive == 278) send_interval = 250;
-    else if (keep_alive == 1200) send_interval = 1100;
-
-    // Увеличиваем интервал на 10% для надежности
-    send_interval = send_interval * 1.1;
-
+    // Отправка keep-alive
     if (send_alive_timer > send_interval)
     {
-        sprintf(buffer, "%dms keep alive", keep_alive);
-        if (!radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), buffer, retry, silent)) {
-            // Если отправка не удалась, пробуем еще раз
-            radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), buffer, retry, silent);
-        }
+        radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), "keep-alive", 1, true);
         send_alive_timer = 0;
     }
 }
@@ -626,8 +621,10 @@ bool ludevice::radiowrite_ex(uint8_t *packet, uint8_t packet_size, char *name, u
     bool success = false;
     uint8_t attempts = retry;
 
+    // Предварительный расчет контрольной суммы
+    setChecksum(packet, packet_size);
+
     for (uint8_t i = 0; i < attempts; i++) {
-        setChecksum(packet, packet_size);
         if (radio.write(packet, packet_size)) {
             success = true;
             break;
@@ -635,21 +632,19 @@ bool ludevice::radiowrite_ex(uint8_t *packet, uint8_t packet_size, char *name, u
         
         if (!lock_channel) {
             changeChannel();
-            delay(2);  // Добавлена задержка после смены канала
-        } else {
-            delay(1);  // Короткая задержка между попытками
+            delay(1);  // Минимальная задержка
         }
     }
 
-    if (!silent) {
-        printf("OUT[%2d]: %s %2d %c ", 
+    // Логирование только при ошибках или явном запросе
+    if (!silent || !success) {
+        printf("OUT[%2d]: %s %2d %c %s", 
                packet_size, 
                hexa(rf_address, 5), 
                current_channel,
-               success ? ' ' : '!');
-        printf("%s", hexs(packet, packet_size));
-        if (name != NULL)
-            printf(" - %s", name);
+               success ? ' ' : '!',
+               hexs(packet, packet_size));
+        if (name) printf(" - %s", name);
         printf("\r\n");
     }
 
@@ -658,18 +653,16 @@ bool ludevice::radiowrite_ex(uint8_t *packet, uint8_t packet_size, char *name, u
 
 void ludevice::changeChannel()
 {
-    if (is_pairing)
-    {
+    if (is_pairing) {
         channel_pairing_id = (channel_pairing_id + 1) % CHANNEL_PAIRING_COUNT;
         current_channel = channel_pairing[channel_pairing_id];
-    }
-    else
-    {        
+    } else {        
         channel_tx_id = (channel_tx_id + 1) % CHANNEL_TX_COUNT;
         current_channel = channel_tx[channel_tx_id];
     }
     
     radio.setChannel(current_channel);
+    delay(1);  // Короткая задержка для стабилизации
 }
 
 bool ludevice::reconnect()
