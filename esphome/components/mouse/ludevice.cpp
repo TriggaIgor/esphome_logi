@@ -294,53 +294,67 @@ void ludevice::hidpp20(uint8_t *rf_payload, uint8_t payload_size)
 }
 
 void ludevice::loop() {
-    // Пытаемся восстановить подключение, если не подключены
-    if (! connection_established) {
-        uint32_t current_time = millis();
-        
-        // 1. Периодические попытки сопряжения (каждые 30 сек, максимум 5 попыток)
-        if (current_time - last_pair_attempt > PAIR_INTERVAL && 
-            pair_attempt_count < MAX_PAIR_ATTEMPTS) {
-            if (pair()) {
-                connection_established = true;
-                keep_alive_mode = false;
-                return;
-            }
-            pair_attempt_count++;
-            last_pair_attempt = current_time;
-        }
-        
-        // 2. Если есть сохраненные данные - пытаемся переподключиться
-        if (has_saved_connection() && !keep_alive_mode) {
-            if (reconnect()) {
-                connection_established = true;
-                keep_alive_mode = false;
-                return;
-            }
-            // После неудачных попыток переходим в режим keep-alive
-            keep_alive_mode = true;
-        }
-    }
-    
-    // Всегда обрабатываем входящие пакеты, если есть
+    uint32_t current_time = millis();
     uint8_t processed = 0;
     uint8_t max_packets = 3;
+
+    // Обработка входящих пакетов
     while (radio.available() && processed < max_packets) {
         uint8_t *rf_payload;
         uint8_t response_size = read(rf_payload);
         hidpp10(rf_payload, response_size);
         processed++;
         
-        // Если получили ответ - считаем что подключены
-        if (! connection_established) {
+        if (!connection_established) {
             connection_established = true;
-            keep_alive_mode = false;
+            ESP_LOGD(TAG, "Connection restored by incoming packet");
         }
     }
-    
-    // Отправляем keep-alive в любом состоянии
-    stay_alive_keyboard();
+
+    // Логика восстановления подключения
+    if (!connection_established) {
+        // Периодические попытки сопряжения
+        if (pair_attempt_count < MAX_PAIR_ATTEMPTS && 
+            current_time - last_pair_attempt > PAIR_INTERVAL) {
+            if (pair()) {
+                connection_established = true;
+            } else {
+                pair_attempt_count++;
+                last_pair_attempt = current_time;
+            }
+        }
+        
+        // Периодические попытки переподключения по сохраненным данным
+        if (has_saved_connection() && 
+            !is_attempting_reconnect &&
+            current_time - last_reconnect_attempt > RECONNECT_INTERVAL &&
+            reconnect_attempt_count < MAX_RECONNECT_ATTEMPTS) {
+            
+            is_attempting_reconnect = true;
+            if (reconnect()) {
+                connection_established = true;
+                reconnect_attempt_count = 0;
+            } else {
+                reconnect_attempt_count++;
+                last_reconnect_attempt = current_time;
+            }
+            is_attempting_reconnect = false;
+        }
+    }
+
+    // Отправка keep-alive с разными интервалами
+    if (connection_established) {
+        stay_alive_keyboard(); // Короткий интервал при подключении
+    } else {
+        // Увеличенный интервал при отсутствии подключения
+        if (send_alive_timer > 5000) {
+            radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), 
+                         "Searching receiver", 1, true);
+            send_alive_timer = 0;
+        }
+    }
 }
+
 
 void ludevice::stay_alive_keyboard() {
     uint16_t interval =  connection_established ? keep_alive : 1000;
@@ -717,14 +731,27 @@ void ludevice::changeChannel()
     radio.setChannel(current_channel);
 }
 
-bool ludevice::reconnect()
-{
-    if (register_device()) {
-        connection_established = true;
-        keep_alive_mode = false;
-        return true;
+bool ludevice::reconnect() {
+    if (!has_saved_connection()) return false;
+    
+    ESP_LOGD(TAG, "Attempting reconnect with saved data");
+    
+    // Увеличиваем время ожидания ответа
+    radio.setRetries(3, 15); // 3*250мс + 15*250мс = ~4.5 сек
+    
+    bool success = register_device();
+    
+    // Восстанавливаем стандартные настройки
+    radio.setRetries(1, 3); 
+    
+    if (success) {
+        ESP_LOGD(TAG, "Reconnect successful");
+    } else {
+        ESP_LOGD(TAG, "Reconnect failed");
+        changeChannel(); // Смена канала после неудачи
     }
-    return false;
+    
+    return success;
 }
 
 bool ludevice::register_device()
