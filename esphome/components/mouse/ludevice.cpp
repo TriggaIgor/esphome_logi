@@ -726,10 +726,9 @@ void ludevice::changeChannel()
     else
     {        
         channel_tx_id = (channel_tx_id + 1) % CHANNEL_TX_COUNT;
-        // Исправлено: использовать channel_tx вместо channel_pairing
         current_channel = channel_tx[channel_tx_id];
     }
-    // Убрать хардкод канала 32!
+    
     radio.setChannel(current_channel);
 }
 
