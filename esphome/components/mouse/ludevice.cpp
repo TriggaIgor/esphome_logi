@@ -651,8 +651,8 @@ uint8_t ludevice::read(uint8_t *&packet)
             printf("%s\r\n", hexs(packet, packet_size));
         }
      
-        if (!_is_connected) {
-            _is_connected = true;
+        if (!connection_established) {
+            connection_established = true;
             printf("ludevice: %s\r\n", "Connection established by incoming packet");
         }
         
