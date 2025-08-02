@@ -368,43 +368,10 @@ void ludevice::stay_alive_keyboard(void)
     char buffer[30];
 
     // 8ms for movement, 110ms for 5 seoncds when movement stops, 1200ms after
-    if (1)
-    {
-        switch (keep_alive)
-        {
-        case 278:
-            if (idle_timer > 60000)
-            {
-                update_keep_alive(1200, retry, silent);
-                return;
-            }
-            break;
-        case 1200:
-            if (idle_timer > (1000 * 5 * 60))
-            {
-                printf("- 5 minutes of idle, TODO: go to sleep\r\n");
-                idle_timer = 6000;
-            }
-            break;
-        default:
-            if (idle_timer > 30000)
-            {
-                update_keep_alive(278, retry, silent);
-                return;
-            }
-            break;
-        }
-
-        send_interval = keep_alive;
-        switch (keep_alive)
-        {
-        case 278:
-            send_interval = 250;
-            break;
-        case 1200:
-            send_interval = 1100;
-            break;
-        }
+    if (idle_timer > 30000 && keep_alive != 278) {
+        update_keep_alive(278, retry, silent);
+    } else if (idle_timer > 60000 && keep_alive != 1200) {
+        update_keep_alive(1200, retry, silent);
     }
 
     if (send_alive_timer > send_interval)
