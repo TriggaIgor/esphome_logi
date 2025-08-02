@@ -670,7 +670,6 @@ void ludevice::changeChannel()
     }
     
     radio.setChannel(current_channel);
-    delay(1);  // Короткая задержка для стабилизации
 }
 
 bool ludevice::reconnect()
