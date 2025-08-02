@@ -319,7 +319,7 @@ public:
     ludevice();
 
     bool begin();
-    void copy_key_material(uint8_t* dest, const uint8_t* src, size_t len);
+
     int pair();
     bool pairing();
     bool pair_response(uint8_t *packet, char *name, uint8_t retry);
