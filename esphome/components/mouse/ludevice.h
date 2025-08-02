@@ -153,7 +153,7 @@ private:
     uint32_t firmware_version = 0x35000017; // K270
     // char *device_name = "K800";
     // char *device_name = "K270";
-    char *device_name = "Anywhere MX";
+    const char *device_name = "Anywhere MX";
 
     // keyboard at 20ms, 0x14
     // mouse keep alive at 8ms interval
@@ -191,9 +191,9 @@ private:
         LOGITACKER_DEVICE_REPORT_TYPES_PAIRING | LOGITACKER_DEVICE_REPORT_TYPES_KEEP_ALIVE,
         0x01,                          // step 1
         0xfa, 0xde, 0x11, 0x11, 0x07,  // rfaddress
-        keep_alive,                    // default keep_alive
-        ((device_wpid & 0xff00) >> 8), // wireless PID MSB
-        ((device_wpid & 0x00ff) >> 0), // wireless PID LSB
+        static_cast<uint8_t>(keep_alive), // исправлено
+        static_cast<uint8_t>((device_wpid & 0xff00) >> 8),
+        static_cast<uint8_t>(device_wpid & 0x00ff),
         protocol, 0x00,
         device_type,
         caps,
@@ -226,19 +226,19 @@ private:
         0x00,
         LOGITACKER_DEVICE_REPORT_TYPES_PAIRING | LOGITACKER_DEVICE_REPORT_TYPES_KEEP_ALIVE,
         0x02,                                                                         // step 2
-        ((nonce & 0xff000000) >> 24),                                                 // device nonce MSB
-        ((nonce & 0x00ff0000) >> 16),                                                 // device nonce
-        ((nonce & 0x0000ff00) >> 8),                                                  // device nonce
-        ((nonce & 0x000000ff) >> 0),                                                  // device nonce LSB
-        ((serial & 0xff000000) >> 24),                                                // device serial MSB
-        ((serial & 0x00ff0000) >> 16),                                                // device serial
-        ((serial & 0x0000ff00) >> 8),                                                 // device serial
-        ((serial & 0x000000ff) >> 0),                                                 // device serial LSB
-        ((report_types & 0x000000ff) >> 0),                                           // device report types
-        ((report_types & 0x0000ff00) >> 8),                                           // device report types
-        ((report_types & 0x00ff0000) >> 16),                                          // device report types
-        ((report_types & 0xff000000) >> 24),                                          // device report types
-        LOGITACKER_DEVICE_USABILITY_INFO_PS_LOCATION_ON_THE_EDGE_OF_TOP_RIGHT_CORNER, // device_usability_info
+        static_cast<uint8_t>((nonce & 0xff000000) >> 24), // исправлено
+        static_cast<uint8_t>((nonce & 0x00ff0000) >> 16),
+        static_cast<uint8_t>((nonce & 0x0000ff00) >> 8),
+        static_cast<uint8_t>(nonce & 0x000000ff),
+        static_cast<uint8_t>((serial & 0xff000000) >> 24),
+        static_cast<uint8_t>((serial & 0x00ff0000) >> 16),
+        static_cast<uint8_t>((serial & 0x0000ff00) >> 8),
+        static_cast<uint8_t>(serial & 0x000000ff),
+        static_cast<uint8_t>((report_types & 0x000000ff) >> 0),
+        static_cast<uint8_t>((report_types & 0x0000ff00) >> 8),
+        static_cast<uint8_t>((report_types & 0x00ff0000) >> 16),
+        static_cast<uint8_t>((report_types & 0xff000000) >> 24),
+        LOGITACKER_DEVICE_USABILITY_INFO_PS_LOCATION_ON_THE_EDGE_OF_TOP_RIGHT_CORNER,
         0x00, 0x00, 0x00, 0x00, 0x00,
         0x79};
 
@@ -267,15 +267,13 @@ private:
 
     uint8_t keep_alive_change_packet[10] = {
         0x00,
-        LOGITACKER_DEVICE_REPORT_TYPES_SET_KEEP_ALIVE | LOGITACKER_DEVICE_REPORT_TYPES_KEEP_ALIVE, // 0x40 is device to dongle
-        0x00,                                                                                      // unused
+        LOGITACKER_DEVICE_REPORT_TYPES_SET_KEEP_ALIVE | LOGITACKER_DEVICE_REPORT_TYPES_KEEP_ALIVE,
+        0x00,
+        static_cast<uint8_t>((keep_alive & 0xff00) >> 8),
+        static_cast<uint8_t>(keep_alive & 0x00ff),
+        0x00, 0x00, 0x00, 0x00,
+        0xEA};
 
-        // timeout, 00:6E is 110ms, 01:00 is 256ms, 04:B0 is 1200ms
-        ((keep_alive & 0xff00) >> 8), // MSB
-        ((keep_alive & 0x00ff) >> 0), // LSB
-        0x00, 0x00, 0x00, 0x00,       // unused
-        0xEA                          // checksum
-    };
     uint8_t keep_alive_packet[5] = {
         0x00,
         LOGITACKER_DEVICE_REPORT_TYPES_KEEP_ALIVE,
@@ -322,7 +320,7 @@ public:
 
     int pair();
     bool pairing();
-    bool pair_response(uint8_t *packet, char *name, uint8_t retry);
+    bool pair_response(uint8_t *packet, const char *name, uint8_t retry);
     bool reconnect();
     bool register_device();
 
@@ -347,8 +345,8 @@ public:
     void stay_alive_mouse(void);
     void stay_alive_keyboard(void);
     bool update_keep_alive(uint16_t timeout, uint8_t retry, bool silent);
-    bool radiowrite(uint8_t *packet, uint8_t packet_size, char *name, uint8_t retry);
-    bool radiowrite_ex(uint8_t *packet, uint8_t packet_size, char *name, uint8_t retry, bool silent);
+    bool radiowrite(uint8_t *packet, uint8_t packet_size, const char *name, uint8_t retry);
+    bool radiowrite_ex(uint8_t *packet, uint8_t packet_size, const char *name, uint8_t retry, bool silent);
     uint8_t read(uint8_t *&packet);
 
     void hidpp10(uint8_t *rf_payload, uint8_t payload_size);
