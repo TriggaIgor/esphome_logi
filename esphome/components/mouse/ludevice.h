@@ -115,7 +115,7 @@ private:
     const uint32_t PAIR_INTERVAL = 5000; // Попытка сопряжения каждые 30 сек
     uint8_t pair_attempt_count = 0;
     const uint8_t MAX_PAIR_ATTEMPTS = 5;
-
+    
     void setChecksum(uint8_t *payload, uint8_t len);
     void setAddress(uint8_t *address);
     void setAddress(uint64_t address);
@@ -130,6 +130,7 @@ private:
     uint8_t channel_tx[CHANNEL_TX_COUNT] = {5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77};
 
     bool lock_channel = false;
+    bool _is_connected = false;
     bool is_connected = false;
     const char *success = "success";
     const char *failed = "failed";
@@ -326,6 +327,7 @@ public:
     bool connected() const { 
         return is_connected || keep_alive_mode; 
     }
+    bool is_connected() const { return _is_connected; }
     int pair();
     bool pairing();
     bool pair_response(uint8_t *packet, const char *name, uint8_t retry);
