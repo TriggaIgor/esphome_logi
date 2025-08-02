@@ -219,7 +219,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
     kespb.move(move_x, move_y);
   }
 
-void Mouse::update() override {
+void update() override {
     kespb.loop();
     
     if (!enable) return;
