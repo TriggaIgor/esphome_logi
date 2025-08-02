@@ -295,63 +295,70 @@ void ludevice::hidpp20(uint8_t *rf_payload, uint8_t payload_size)
 
 void ludevice::loop() {
     uint32_t current_time = millis();
-    uint8_t processed = 0;
-    uint8_t max_packets = 3;
-
-    // Обработка входящих пакетов
-    while (radio.available() && processed < max_packets) {
-        uint8_t *rf_payload;
+    bool packet_received = false;
+    
+    // Обработка входящих пакетов с приоритетом
+    while (radio.available()) {
+        uint8_t* rf_payload;
         uint8_t response_size = read(rf_payload);
         hidpp10(rf_payload, response_size);
-        processed++;
+        packet_received = true;
         
+        // Сброс таймеров при получении пакета
         if (!connection_established) {
             connection_established = true;
-            printf("%s","Connection restored by incoming packet");
+            pair_attempt_count = 0;
+            reconnect_attempt_count = 0;
+            printf("%s", "Connection restored by incoming packet");
         }
     }
 
     // Логика восстановления подключения
     if (!connection_established) {
-        // Периодические попытки сопряжения
-        if (pair_attempt_count < MAX_PAIR_ATTEMPTS && 
-            current_time - last_pair_attempt > PAIR_INTERVAL) {
-            if (pair()) {
-                connection_established = true;
-            } else {
-                pair_attempt_count++;
-                last_pair_attempt = current_time;
+        // Этап 1: Периодические попытки сопряжения
+        if (pair_attempt_count < MAX_PAIR_ATTEMPTS) {
+            if (current_time - last_pair_attempt > PAIR_INTERVAL) {
+                if (pair()) {
+                    connection_established = true;
+                    keep_alive_mode = false;
+                } else {
+                    pair_attempt_count++;
+                    last_pair_attempt = current_time;
+                    printf("%s", "Pairing attempt %d/%d failed", pair_attempt_count, MAX_PAIR_ATTEMPTS);
+                }
             }
         }
-        
-        // Периодические попытки переподключения по сохраненным данным
-        if (has_saved_connection() && 
-            !is_attempting_reconnect &&
-            current_time - last_reconnect_attempt > RECONNECT_INTERVAL &&
-            reconnect_attempt_count < MAX_RECONNECT_ATTEMPTS) {
-            
-            is_attempting_reconnect = true;
-            if (reconnect()) {
-                connection_established = true;
-                reconnect_attempt_count = 0;
-            } else {
-                reconnect_attempt_count++;
-                last_reconnect_attempt = current_time;
+        // Этап 2: Попытки переподключения по сохраненным данным
+        else if (has_saved_connection()) {
+            if (current_time - last_reconnect_attempt > RECONNECT_INTERVAL) {
+                if (reconnect()) {
+                    connection_established = true;
+                    keep_alive_mode = false;
+                    reconnect_attempt_count = 0;
+                } else {
+                    reconnect_attempt_count++;
+                    last_reconnect_attempt = current_time;
+                    printf("%s", "Reconnect attempt %d/%d failed", reconnect_attempt_count, MAX_RECONNECT_ATTEMPTS);
+                    
+                    // Смена канала после неудачи
+                    changeChannel();
+                }
             }
-            is_attempting_reconnect = false;
+        }
+        // Этап 3: Энергоэффективный режим ожидания
+        else {
+            // Увеличиваем интервал keep-alive до 5 секунд
+            if (send_alive_timer > 5000) {
+                radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), 
+                            "Receiver search", 1, true);
+                send_alive_timer = 0;
+            }
         }
     }
-
-    // Отправка keep-alive с разными интервалами
+    
+    // Отправка обычных keep-alive при подключении
     if (connection_established) {
-        stay_alive_keyboard(); // Короткий интервал при подключении
-    } else {
-        // Увеличенный интервал при отсутствии подключения
-        if (send_alive_timer > 5000) {
-            radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), 
-                         "Searching receiver", 1, true);
-            send_alive_timer = 0;
-        }
+        stay_alive_keyboard();
     }
 }
 
@@ -731,28 +738,32 @@ void ludevice::changeChannel()
     radio.setChannel(current_channel);
 }
 
+
 bool ludevice::reconnect() {
     if (!has_saved_connection()) return false;
     
-    printf("%s","Attempting reconnect with saved data");
+    printf("%s", "Attempting reconnect with saved data");
     
     // Увеличиваем время ожидания ответа
-    radio.setRetries(3, 15); // 3*250мс + 15*250мс = ~4.5 сек
+    radio.setRetries(3, 15);  // 3 попытки с задержкой 15*250мс = 3.75 сек
     
     bool success = register_device();
     
     // Восстанавливаем стандартные настройки
-    radio.setRetries(1, 3); 
+    radio.setRetries(1, 3);
     
     if (success) {
-        printf("%s","Reconnect successful");
+        printf("%s", "Reconnect successful");
     } else {
-        printf("%s","Reconnect failed");
-        changeChannel(); // Смена канала после неудачи
+        printf("%s", "Reconnect failed");
+        // Смена канала после неудачи
+        changeChannel();
     }
     
     return success;
 }
+
+
 
 bool ludevice::register_device()
 {
