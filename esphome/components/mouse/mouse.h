@@ -15,7 +15,7 @@ namespace mouse {
 
 class Mouse : public switch_::Switch, public PollingComponent {
  public:
-  Mouse() : PollingComponent(3) {}  // Увеличили частоту до 5 мс (200 Гц)
+  Mouse() : PollingComponent(10) {}  // Увеличили частоту до 5 мс (200 Гц)
 
   static const char *const TAG;
   static constexpr float MOUSE_PI = 3.14159265358979323846f;
