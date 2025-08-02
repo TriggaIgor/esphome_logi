@@ -110,6 +110,12 @@ class ludevice
 private:
     RF24 radio;
 
+    uint32_t last_reconnect_attempt = 0;
+    const uint32_t RECONNECT_INTERVAL = 10000; // 10 секунд между попытками
+    uint8_t reconnect_attempt_count = 0;
+    const uint8_t MAX_RECONNECT_ATTEMPTS = 5;
+    bool is_attempting_reconnect = false;
+
     bool keep_alive_mode = false; // Режим только отправки keep-alive
     uint32_t last_pair_attempt = 0;
     const uint32_t PAIR_INTERVAL = 5000; // Попытка сопряжения каждые 30 сек
