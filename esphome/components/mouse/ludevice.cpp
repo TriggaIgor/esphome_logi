@@ -778,14 +778,14 @@ void ludevice::changeChannel()
     {
         channel_pairing_id = (channel_pairing_id + 1) % CHANNEL_PAIRING_COUNT;
         current_channel = channel_pairing[channel_pairing_id];
-        radio.setChannel(current_channel);
     }
     else
     {        
         channel_tx_id = (channel_tx_id + 1) % CHANNEL_TX_COUNT;
-        current_channel = channel_pairing[channel_tx_id];
+        // Исправлено: использовать channel_tx вместо channel_pairing
+        current_channel = channel_tx[channel_tx_id];
     }
-    current_channel = 32;
+    // Убрать хардкод канала 32!
     radio.setChannel(current_channel);
 }
 
