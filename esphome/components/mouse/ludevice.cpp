@@ -112,121 +112,42 @@ void ludevice::setChecksum(uint8_t *payload, uint8_t len)
 
 void ludevice::hidpp10(uint8_t *rf_payload, uint8_t payload_size)
 {
+    // Упрощенная и оптимизированная версия
     uint8_t rf_response[22] = {0};
-    uint8_t reply = 22;
-    char *name = "UNKNOWN PACKET!!! PLEASE TEST AT DONGLE SIDE!!!";
+    uint8_t reply = 0;
+    const char* name = "UNKNOWN";
 
+    // Базовые параметры ответа
     rf_response[0] = rf_payload[0];
-    rf_response[1] = 0x40 | rf_payload[1]; // report ID
-    rf_response[2] = rf_payload[2];        // device index
-    rf_response[3] = rf_payload[3];        // sub id
-    rf_response[4] = rf_payload[4];        // address
+    rf_response[1] = 0x40 | rf_payload[1];
+    rf_response[2] = rf_payload[2];
+    rf_response[3] = rf_payload[3];
+    rf_response[4] = rf_payload[4];
 
-    uint32_t feature_id = (rf_payload[5] << 8) + (rf_payload[6]);
-    uint32_t addr_param = (rf_payload[4] << 8) + (rf_payload[5]);
-
-    // request sub_id is [2 + 1]
-    switch (rf_payload[3])
-    {
-    case 0x80: // SET_REGISTER
-        // reply = 10;
-        printf("SETTING REGISTER!!!!!!!!!");
-        break;
-    case 0x81: // GET_REGISTER
-        reply = 10;
-        switch (addr_param)
-        {
-        case 0xf101:
-            // firmware major
-            name = "Firmware Major";
-            rf_response[5] = rf_payload[5];
-            rf_response[6] = (firmware_version >> 24) & 0xff;
-            rf_response[7] = (firmware_version >> 16) & 0xff;
-            break;
-        case 0xf102:
-            name = "Firmware Minor";
-            rf_response[5] = rf_payload[5];
-            rf_response[6] = (firmware_version >> 8) & 0xff;
-            rf_response[7] = (firmware_version >> 0) & 0xff;
-            break;
-        case 0xf103:
-            name = "Firmware 0x03";
-            rf_response[5] = rf_payload[5];
-            rf_response[6] = 0x01;
-            rf_response[7] = 0x02;
-            break;
-        case 0xf104:
-            name = "Firmware 0x04";
-            rf_response[5] = rf_payload[5];
-            rf_response[6] = 0x02;
-            rf_response[7] = 0x14;
-            break;
-        case 0x700:
-            name = "HIDPP_REG_BATTERY_STATUS bad";
-            rf_response[5] = 0x7; //rf_payload[5];
-            rf_response[6] = 3;   // capacity
-            rf_response[7] = 0x0; // level 1-7
-            rf_response[8] = 0x0; // discharing
-            break;
-        case 0xd00:
-            // reply = 0;
-            name = "HIDPP_REG_BATTERY_MILEAGE";
-            rf_response[5] = 50;     // capacity: 0 - 100
-            rf_response[6] = 0;      // nothing: 0
-            rf_response[7] = 0 << 6; // status: 0 - discharging, 1 - charging
-            break;
-        default:
-            reply = 0;
-            name = "UNKNOWN";
-            break;
-        }
-        break;
-    default:
-        switch (feature_id)
-        {
-        case 0x03:
-            // 00 10 9E 00 02 00 03 00 B6 97
-            // 00 51 9E 00 02 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0D - response
-            if (addr_param = 0x200)
-            {
-                name = "copied from K270 (2)";
-                reply = 22;
-                rf_response[3] = 0x02;
-                rf_response[4] = 0x02;
-                rf_response[5] = 0x00;
-            }
-            break;
-        case 0x3f13:
-            // 00 10 0E 00 12 3F 13 00 00 7E
-            // 00 51 0E 00 12 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 8D - response
-            name = "copied from K270 (1)";
-            reply = 22;
-            rf_response[3] = 0x00;
-            rf_response[4] = 0x12;
-            rf_response[5] = 0x02;
-            break;
-        case 0x0000: // 00 10 0E 00 12 00 00 00 B6 1A
-            name = "we don't understand HID++ 2.0";
+    // Только обработка критичных запросов
+    if (rf_payload[3] == 0x81) { // GET_REGISTER
+        uint32_t addr_param = (rf_payload[4] << 8) + (rf_payload[5]);
+        
+        if (addr_param == 0xd00) { // HIDPP_REG_BATTERY_MILEAGE
+            name = "Battery";
             reply = 10;
-            // HID++ 1.0
-            rf_response[3] = 0x8f;
-            rf_response[4] = 0;
-            // RF rf_response Results start from [4 + 1]
-            rf_response[5] = 0x10 + (rf_payload[4] & 0xf);
-            rf_response[6] = 1;
+            rf_response[5] = 50;  // capacity
+            rf_response[6] = 0;
             rf_response[7] = 0;
-            rf_response[8] = 0;
         }
-        break;
+        else if (addr_param == 0xf101 || addr_param == 0xf102) {
+            name = "Firmware";
+            reply = 10;
+            rf_response[5] = rf_payload[5];
+            rf_response[6] = (firmware_version >> (addr_param == 0xf101 ? 24 : 8)) & 0xff;
+            rf_response[7] = (firmware_version >> (addr_param == 0xf101 ? 16 : 0)) & 0xff;
+        }
     }
 
     if (reply && (rf_payload[1] == 0x10 || rf_payload[1] == 0x11))
     {
-        if (reply == 10)
-            rf_response[1] = 0x50;
-        if (reply == 22)
-            rf_response[1] = 0x51;
-        radiowrite(rf_response, reply, name, 5);
+        rf_response[1] = (reply == 10) ? 0x50 : 0x51;
+        radiowrite(rf_response, reply, name, 1);
     }
 }
 
