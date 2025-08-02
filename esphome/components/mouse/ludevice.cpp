@@ -276,7 +276,7 @@ void ludevice::loop(void)
         return;
 
     // Ограничиваем количество обработки за один вызов
-    uint8_t max_packets = 3;
+    uint8_t max_packets = 1;
     uint8_t processed = 0;
     
     while (radio.available() && processed < max_packets)
