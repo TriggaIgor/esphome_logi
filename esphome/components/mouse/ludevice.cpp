@@ -343,7 +343,7 @@ void ludevice::loop() {
 }
 
 void ludevice::stay_alive_keyboard() {
-    uint16_t interval = _is_connected ? keep_alive : 1000;
+    uint16_t interval =  connection_established ? keep_alive : 1000;
     // Упрощенная логика отправки keep-alive
     if (send_alive_timer > interval) {
         // В режиме ожидания отправляем с минимальными попытками
