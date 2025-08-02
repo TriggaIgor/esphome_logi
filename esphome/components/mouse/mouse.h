@@ -220,25 +220,33 @@ class Mouse : public switch_::Switch, public PollingComponent {
   }
 
   void update() override {
-      kespb.loop(); // Поддерживаем соединение
+      kespb.loop();
       
       if (!enable) return;
       
-      // Проверяем состояние подключения
-      bool is_connected = kespb.connected();
-      
-      // Обрабатываем анимацию только если подключены
-      if (is_connected && animation_state != ANIMATION_IDLE) {
-        physics_step();
+      // Используем метод доступа к состоянию подключения
+      if (kespb.is_connected()) {
+          // Обработка анимации
+          if (animation_state != ANIMATION_IDLE) {
+              ESP_LOGD(TAG, "Processing animation step");
+              physics_step();
+          }
+          
+          // Запуск нового движения
+          const uint32_t current_time = millis();
+          if (animation_state == ANIMATION_IDLE) {
+              uint32_t time_since_last = current_time - move_timer;
+              uint32_t required_delay = static_cast<uint32_t>(random(5000, max_random));
+              
+              if (time_since_last > required_delay) {
+                  ESP_LOGD(TAG, "Starting new movement (delay: %ums)", time_since_last);
+                  start_human_animation();
+                  move_timer = current_time;
+              }
+          }
       }
-      
-      // Запускаем новое движение по таймеру только если подключены
-      const uint32_t current_time = millis();
-      if (is_connected && 
-          animation_state == ANIMATION_IDLE && 
-          (current_time - move_timer) > static_cast<uint32_t>(random(5000, max_random))) {
-        start_human_animation();
-        move_timer = current_time;
+      else {
+          ESP_LOGW(TAG, "Not connected, skipping movement");
       }
   }
   
