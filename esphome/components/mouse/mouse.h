@@ -184,6 +184,9 @@ class Mouse : public switch_::Switch, public PollingComponent {
         acceleration.y = -velocity.y * deceleration_rate * brake_factor;
         break;
      
+      case ANIMATION_IDLE:
+        break;
+     
       default: // Добавить обработку по умолчанию
         break;
     }
