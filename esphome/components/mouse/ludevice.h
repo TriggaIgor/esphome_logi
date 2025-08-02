@@ -131,7 +131,7 @@ private:
 
     bool lock_channel = false;
     bool _is_connected = false;
-    bool is_connected = false;
+    bool connection_established = false;
     const char *success = "success";
     const char *failed = "failed";
     const char *status;
@@ -325,7 +325,7 @@ public:
     bool has_saved_connection(); 
     bool begin();
     bool connected() const { 
-        return is_connected || keep_alive_mode; 
+        return connection_established || keep_alive_mode; 
     }
     bool is_connected() const { return _is_connected; }
     int pair();
