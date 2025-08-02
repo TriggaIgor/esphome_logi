@@ -110,6 +110,12 @@ class ludevice
 private:
     RF24 radio;
 
+    bool keep_alive_mode = false; // Режим только отправки keep-alive
+    uint32_t last_pair_attempt = 0;
+    const uint32_t PAIR_INTERVAL = 5000; // Попытка сопряжения каждые 30 сек
+    uint8_t pair_attempt_count = 0;
+    const uint8_t MAX_PAIR_ATTEMPTS = 5;
+
     void setChecksum(uint8_t *payload, uint8_t len);
     void setAddress(uint8_t *address);
     void setAddress(uint64_t address);
@@ -315,7 +321,7 @@ private:
 public:
     ludevice(uint8_t _cepin, uint8_t _cspin);
     ludevice();
-
+    bool has_saved_connection(); 
     bool begin();
 
     int pair();
