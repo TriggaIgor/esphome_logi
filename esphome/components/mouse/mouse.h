@@ -243,6 +243,9 @@ class Mouse : public switch_::Switch, public PollingComponent {
                   move_timer = current_time;
               }
           }
+      } else {
+        // Сбрасываем состояние анимации при потере связи
+        animation_state = ANIMATION_IDLE;
       }
   }
   
