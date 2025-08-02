@@ -712,24 +712,26 @@ bool ludevice::radiowrite_ex(uint8_t *packet, uint8_t packet_size, char *name, u
         
         if (!lock_channel) {
             changeChannel();
+            delay(2);  // Добавлена задержка после смены канала
+        } else {
+            delay(1);  // Короткая задержка между попытками
         }
     }
 
     if (!silent) {
-        printf("OUT[%2d]: %s %2d %c %s", 
+        printf("OUT[%2d]: %s %2d %c ", 
                packet_size, 
                hexa(rf_address, 5), 
                current_channel,
-               success ? ' ' : '!',
-               hexs(packet, packet_size));
-               
-        if (name) printf(" - %s", name);
+               success ? ' ' : '!');
+        printf("%s", hexs(packet, packet_size));
+        if (name != NULL)
+            printf(" - %s", name);
         printf("\r\n");
     }
 
     return success;
 }
-
 
 void ludevice::changeChannel()
 {
