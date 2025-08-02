@@ -293,13 +293,12 @@ void ludevice::hidpp20(uint8_t *rf_payload, uint8_t payload_size)
     }
 }
 
-void ludevice::loop(void)
-{
-    // Режим постоянных попыток восстановления
+void ludevice::loop() {
+    // Пытаемся восстановить подключение, если не подключены
     if (!is_connected) {
         uint32_t current_time = millis();
         
-        // 1. Периодические попытки сопряжения
+        // 1. Периодические попытки сопряжения (каждые 30 сек, максимум 5 попыток)
         if (current_time - last_pair_attempt > PAIR_INTERVAL && 
             pair_attempt_count < MAX_PAIR_ATTEMPTS) {
             if (pair()) {
@@ -314,41 +313,50 @@ void ludevice::loop(void)
         // 2. Если есть сохраненные данные - пытаемся переподключиться
         if (has_saved_connection() && !keep_alive_mode) {
             if (reconnect()) {
+                is_connected = true;
+                keep_alive_mode = false;
                 return;
             }
             // После неудачных попыток переходим в режим keep-alive
             keep_alive_mode = true;
         }
+    }
+    
+    // Всегда обрабатываем входящие пакеты, если есть
+    uint8_t processed = 0;
+    uint8_t max_packets = 3;
+    while (radio.available() && processed < max_packets) {
+        uint8_t *rf_payload;
+        uint8_t response_size = read(rf_payload);
+        hidpp10(rf_payload, response_size);
+        processed++;
         
-        // 3. Режим только отправки keep-alive
-        if (keep_alive_mode) {
-            stay_alive_keyboard();
+        // Если получили ответ - считаем что подключены
+        if (!is_connected) {
+            is_connected = true;
+            keep_alive_mode = false;
         }
     }
-    else {
-
-      // Ограничиваем количество обработки за один вызов
-      uint8_t max_packets = 1;
-      uint8_t processed = 0;
-      
-      while (radio.available() && processed < max_packets)
-      {
-          uint8_t *rf_payload;
-          uint8_t response_size = read(rf_payload);
-          hidpp10(rf_payload, response_size);
-          processed++;
-      }
-      stay_alive_keyboard();
-    }
+    
+    // Отправляем keep-alive в любом состоянии
+    stay_alive_keyboard();
 }
 
 void ludevice::stay_alive_keyboard() {
-    // Упрощенная версия без сложной логики
+    // Упрощенная логика отправки keep-alive
     if (send_alive_timer > keep_alive) {
-        // Уменьшаем количество попыток в режиме ожидания
+        // В режиме ожидания отправляем с минимальными попытками
         uint8_t attempts = is_connected ? 3 : 1;
+        
+        // Формируем информационное сообщение
+        char buffer[40];
+        snprintf(buffer, sizeof(buffer), "%dms keep-alive (%s)", 
+                 keep_alive, 
+                 is_connected ? "connected" : "searching");
+        
         radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), 
-                     "keep-alive", attempts, true);
+                     buffer, attempts, !is_connected);
+        
         send_alive_timer = 0;
     }
 }
@@ -641,6 +649,13 @@ uint8_t ludevice::read(uint8_t *&packet)
             printf("IN [%2d]:                  %2d   ", packet_size, current_channel);
             printf("%s\r\n", hexs(packet, packet_size));
         }
+     
+        if (!is_connected) {
+            is_connected = true;
+            keep_alive_mode = false;
+            ESP_LOGD("ludevice", "Connection established by incoming packet");
+        }
+        
         return packet_size;
     }
     return 0;
