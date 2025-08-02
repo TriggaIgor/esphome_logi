@@ -673,46 +673,36 @@ bool ludevice::radiowrite(uint8_t *packet, uint8_t packet_size, char *name, uint
 
 bool ludevice::radiowrite_ex(uint8_t *packet, uint8_t packet_size, char *name, uint8_t retry, bool silent)
 {
-    char outcome;
+    bool success = false;
+    uint8_t attempts = retry;
 
-    // retry = 1;
-    outcome = '!';
-    while (retry)
-    {
+    for (uint8_t i = 0; i < attempts; i++) {
         setChecksum(packet, packet_size);
-        if (radio.write(packet, packet_size))
-            outcome = ' ';
-        else
-            retry--;
-
-        if (!silent)
-        {
-            // printf("OUT[%2d]: %2d  %s %c ", packet_size, current_channel, hexa(rf_address, 5), outcome);
-            // printf("%d OUT[%2d]:  %s  %2d %c ", millis(), packet_size, hexa(rf_address, 5), current_channel, outcome);
-            printf("OUT[%2d]:  %s  %2d %c ", packet_size, hexa(rf_address, 5), current_channel, outcome);
-            printf("%s", hexs(packet, packet_size));
-            if (name != NULL)
-                printf(" - %s\r\n", name);
-            else
-                printf("\r\n");
-        }
-
-        if (outcome == '!')
-        {
-            if (!lock_channel)
-            {
-                changeChannel();
-            }
-        }
-        else
+        if (radio.write(packet, packet_size)) {
+            success = true;
             break;
-    };
+        }
+        
+        if (!lock_channel) {
+            changeChannel();
+        }
+    }
 
-    if (outcome == '!')
-        return false;
+    if (!silent) {
+        printf("OUT[%2d]: %s %2d %c %s", 
+               packet_size, 
+               hexa(rf_address, 5), 
+               current_channel,
+               success ? ' ' : '!',
+               hexs(packet, packet_size));
+               
+        if (name) printf(" - %s", name);
+        printf("\r\n");
+    }
 
-    return true;
+    return success;
 }
+
 
 void ludevice::changeChannel()
 {
