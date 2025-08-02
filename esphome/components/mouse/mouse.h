@@ -142,7 +142,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
     // Рассчитываем вектор к цели
     float dx = target_position.x - current_position.x;
     float dy = target_position.y - current_position.y;
-    float distance = std::sqrt(dx*dx + dy*dy);
+    float distance = sqrtf(dx*dx + dy*dy); // Более быстрая версия sqrt
     
     // Если достигли цели
     if (distance < 0.5f) {
@@ -210,8 +210,8 @@ class Mouse : public switch_::Switch, public PollingComponent {
     const float scale_factor = 2.0f; // Увеличиваем амплитуду в 2 раза
     
     // Обновляем позицию с масштабированием
-    current_position.x += velocity.x * delta_time * 1000.0f * scale_factor;
-    current_position.y += velocity.y * delta_time * 1000.0f * scale_factor;
+    current_position.x += static_cast<int>(velocity.x * delta_time * 1000.0f * scale_factor);
+    current_position.y += static_cast<int>(velocity.y * delta_time * 1000.0f * scale_factor);
     
     // Добавляем "дрожь" руки
     float jitter_x = random_float(-jitter_amount, jitter_amount);
