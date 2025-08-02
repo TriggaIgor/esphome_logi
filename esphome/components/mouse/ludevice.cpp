@@ -364,24 +364,22 @@ void ludevice::loop() {
 
 
 void ludevice::stay_alive_keyboard() {
-    uint16_t interval =  connection_established ? keep_alive : 1000;
-    // Упрощенная логика отправки keep-alive
+    uint16_t interval = connection_established ? keep_alive : 5000;
+    
     if (send_alive_timer > interval) {
-        // В режиме ожидания отправляем с минимальными попытками
-        uint8_t attempts = connection_established ? 3 : 1;
-        
-        // Формируем информационное сообщение
+        const char* status = connection_established ? "connected" : "searching";
         char buffer[40];
         snprintf(buffer, sizeof(buffer), "%dms keep-alive (%s)", 
-                 keep_alive, 
-                 connection_established ? "connected" : "searching");
+                 interval, status);
         
         radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), 
-                     buffer, attempts, ! connection_established);
+                     buffer, connection_established ? 3 : 1, 
+                     !connection_established);
         
         send_alive_timer = 0;
     }
 }
+
 
 // ludevice.cpp (строка ~505)
 void ludevice::stay_alive_mouse(void)
