@@ -14,8 +14,8 @@ CONF_MAX_SPEED = "max_speed"
 CONF_ACCELERATION_RATE = "acceleration_rate"
 CONF_DECELERATION_RATE = "deceleration_rate"
 
-CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(Mouse),
+# Обновленная схема с использованием switch_schema
+CONFIG_SCHEMA = switch.switch_schema(Mouse).extend({
     cv.Optional(CONF_BASE_SPEED, default=8.0): cv.float_range(min=0.1, max=100.0),
     cv.Optional(CONF_JITTER_AMOUNT, default=1.5): cv.float_range(min=0.0, max=10.0),
     cv.Optional(CONF_MOVEMENT_SPEED, default=0.5): cv.float_range(min=0.01, max=10.0),
