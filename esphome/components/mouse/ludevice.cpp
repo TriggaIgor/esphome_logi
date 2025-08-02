@@ -646,14 +646,14 @@ uint8_t ludevice::read(uint8_t *&packet)
         if (packet[1] != 0xe)
         {
             // printf("IN [%2d]: %2d                   ", packet_size, current_channel);
-            printf("IN [%2d]:                  %2d   ", packet_size, current_channel);
+            printf("IN [%2d]:                  %2d   \r\n", packet_size, current_channel);
             printf("%s\r\n", hexs(packet, packet_size));
         }
      
         if (!is_connected) {
             is_connected = true;
             keep_alive_mode = false;
-            ESP_LOGD("ludevice", "Connection established by incoming packet");
+            printf("ludevice: %s\r\n", "Connection established by incoming packet");
         }
         
         return packet_size;
