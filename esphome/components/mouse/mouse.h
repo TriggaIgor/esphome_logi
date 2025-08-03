@@ -81,7 +81,14 @@ class Mouse : public switch_::Switch, public PollingComponent {
       }
       yield();
     }
-    ESP_LOGW(TAG, "Failed to initialize device");
+    while (1) {
+      if (kespb.reconnect()) {
+        ESP_LOGD(TAG, "Connection established");
+        return;
+      }
+      yield();
+    }
+   // ESP_LOGW(TAG, "Failed to initialize device");
   }
 
 
