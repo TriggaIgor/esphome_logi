@@ -113,6 +113,7 @@ private:
     void setChecksum(uint8_t *payload, uint8_t len);
     void setAddress(uint8_t *address);
     void setAddress(uint64_t address);
+    uint32_t last_channel_scan = 0;
 
     struct AES_ctx ctx;
 
@@ -315,7 +316,8 @@ private:
 public:
     ludevice(uint8_t _cepin, uint8_t _cspin);
     ludevice();
-
+    
+    bool is_other_device_active();
     bool begin();
 
     int pair();
