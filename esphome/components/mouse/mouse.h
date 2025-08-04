@@ -243,7 +243,14 @@ class Mouse : public switch_::Switch, public PollingComponent {
     kespb.loop(); // Поддерживаем соединение
     
     if (!enable) return;
-    
+
+   const uint32_t current_time = millis();
+    if (kespb.is_other_device_active()) {
+        ESP_LOGW(TAG, "Real mouse detected! Suspending emulation");
+        animation_state = REAL_DEVICE;
+        move_timer = current_time;
+        return;
+    }    
 
     // Обрабатываем анимацию
     if (animation_state != ANIMATION_IDLE) {
@@ -251,13 +258,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
     }
     
     // Запускаем новое движение по таймеру
-    const uint32_t current_time = millis();
-    if (kespb.is_other_device_active()) {
-        ESP_LOGW(TAG, "Real mouse detected! Suspending emulation");
-        animation_state = REAL_DEVICE;
-        move_timer = current_time;
-        return;
-    }
+
     if (animation_state == ANIMATION_IDLE && 
         (current_time - move_timer) > static_cast<uint32_t>(random(5000, max_random))) {
       start_human_animation();
