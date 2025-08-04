@@ -247,6 +247,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
     if (kespb.is_other_device_active()) {
         ESP_LOGW(TAG, "Real mouse detected! Suspending emulation");
         animation_state = REAL_DEVICE;
+        move_timer = current_time;
         return;
     }
     // Обрабатываем анимацию
