@@ -25,7 +25,8 @@ class Mouse : public switch_::Switch, public PollingComponent {
     ANIMATION_IDLE,
     ANIMATION_ACCELERATING,
     ANIMATION_MOVING,
-    ANIMATION_DECELERATING
+    ANIMATION_DECELERATING,
+    REAL_DEVICE
   } animation_state = ANIMATION_IDLE;
   
   // Физические параметры движения
@@ -166,6 +167,9 @@ class Mouse : public switch_::Switch, public PollingComponent {
         case ANIMATION_IDLE:
             // Не должно происходить, но на случай если вызвали по ошибке
             return;
+
+        case REAL_DEVICE:
+            return;
             
         case ANIMATION_ACCELERATING:
             acceleration.x = dir_x * acceleration_rate;
@@ -242,7 +246,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
     
     if (kespb.is_other_device_active()) {
         ESP_LOGW(TAG, "Real mouse detected! Suspending emulation");
-        animation_state = ANIMATION_IDLE;
+        animation_state = REAL_DEVICE;
         return;
     }
     // Обрабатываем анимацию
@@ -254,6 +258,12 @@ class Mouse : public switch_::Switch, public PollingComponent {
     const uint32_t current_time = millis();
     if (animation_state == ANIMATION_IDLE && 
         (current_time - move_timer) > static_cast<uint32_t>(random(5000, max_random))) {
+      start_human_animation();
+      move_timer = current_time;
+    }
+   
+    if (animation_state == REAL_DEVICE && 
+        (current_time - move_timer) > static_cast<uint32_t>(30000)) {
       start_human_animation();
       move_timer = current_time;
     }
