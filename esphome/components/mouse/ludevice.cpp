@@ -100,6 +100,46 @@ bool ludevice::begin()
     return true;
 }
 
+bool ludevice::is_other_device_active() {
+    if (millis() - last_channel_scan < 5000) 
+        return false; // Сканируем не чаще 1 раза в 5 секунд
+    
+    last_channel_scan = millis();
+    uint8_t original_channel = current_channel;
+    bool activity_detected = false;
+    
+    // Сканируем все каналы Unifying
+    for (uint8_t i = 0; i < CHANNEL_TX_COUNT; i++) {
+        radio.setChannel(channel_tx[i]);
+        radio.startListening();
+        delay(2); // Кратковременное прослушивание
+        
+        // Проверяем наличие сигнала
+        if (radio.testRPD()) { // testRPD() обнаруживает радиосигнал
+            // Проверяем, не наш ли это пакет
+            if (radio.available()) {
+                uint8_t temp_packet[32];
+                radio.read(temp_packet, sizeof(temp_packet));
+                
+                // Сравниваем MAC-адрес
+                if (memcmp(temp_packet, rf_address, 5) != 0) {
+                    activity_detected = true;
+                    break;
+                }
+            } else {
+                // Сигнал есть, но не наш пакет
+                activity_detected = true;
+                break;
+            }
+        }
+    }
+    
+    // Восстанавливаем исходное состояние
+    radio.setChannel(original_channel);
+    radio.stopListening();
+    return activity_detected;
+}
+
 void ludevice::setChecksum(uint8_t *payload, uint8_t len)
 {
     uint8_t checksum = 0;
@@ -613,6 +653,9 @@ uint8_t ludevice::read(uint8_t *&packet)
             // printf("IN [%2d]: %2d                   ", packet_size, current_channel);
             printf("IN [%2d]:                  %2d   ", packet_size, current_channel);
             printf("%s\r\n", hexs(packet, packet_size));
+        }
+        if (packet[1] == 0x53) { // Команда смены устройства
+            printf("%s", "Receiver requested device change");
         }
         return packet_size;
     }
