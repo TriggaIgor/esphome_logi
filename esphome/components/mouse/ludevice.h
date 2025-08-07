@@ -358,8 +358,7 @@ public:
 
     void wipe_pairing(void);
     void loop(void);
-    void stay_alive_mouse(void);
-    void stay_alive_keyboard(void);
+    void stay_alive(void);
     bool update_keep_alive(uint16_t timeout, uint8_t retry, bool silent);
     bool radiowrite(uint8_t *packet, uint8_t packet_size, const char *name, uint8_t retry);
     bool radiowrite_ex(uint8_t *packet, uint8_t packet_size, const char *name, uint8_t retry, bool silent);
