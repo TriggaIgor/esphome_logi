@@ -344,7 +344,7 @@ void ludevice::loop(void)
 void ludevice::stay_alive(void) {
     static uint32_t last_check = 0;
     const uint32_t now = millis();
-    const bool is_mouse = (device_type == DEVICE_TYPE_MOUSE); // Добавляем тип устройства
+    const bool is_mouse = (device_type == LOGITACKER_DEVICE_UNIFYING_TYPE_MOUSE);
 
     // Обновление интервалов раз в секунду
     if (now - last_check > 1000) {
@@ -374,9 +374,13 @@ void ludevice::stay_alive(void) {
     }
 
     // Вычисление интервала отправки
-    uint16_t send_interval = keep_alive;
-    if (is_mouse && keep_alive == 110) send_interval = 110;
+    uint16_t send_interval = new_keep_alive;
     
+    // Корректировка только для мыши в активном режиме
+    if (is_mouse && new_keep_alive == 110) {
+        send_interval = 110; // Строго 110 мс для мыши
+    }
+
     // Отправка keep-alive
     if (send_alive_timer > send_interval) {
         const char* device_name = is_mouse ? "mouse" : "keyboard";
