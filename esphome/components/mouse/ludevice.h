@@ -109,7 +109,7 @@ class ludevice
 {
 private:
     RF24 radio;
-
+    DeviceType device_type = DEVICE_TYPE_MOUSE; // По умолчанию
     void setChecksum(uint8_t *payload, uint8_t len);
     void setAddress(uint8_t *address);
     void setAddress(uint64_t address);
@@ -317,6 +317,20 @@ public:
     ludevice(uint8_t _cepin, uint8_t _cspin);
     ludevice();
     
+    enum DeviceType {
+        DEVICE_TYPE_MOUSE,
+        DEVICE_TYPE_KEYBOARD
+    };
+
+    void setDeviceType(DeviceType type) {
+        device_type = type;
+        // Инициализация специфичных параметров
+        if (type == DEVICE_TYPE_MOUSE) {
+            keep_alive = 110;
+        } else {
+            keep_alive = 100;
+        }
+    }
     bool is_other_device_active();
     bool begin();
 
