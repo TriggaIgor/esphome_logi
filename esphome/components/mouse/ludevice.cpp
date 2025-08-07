@@ -390,10 +390,11 @@ void ludevice::stay_alive(void) {
         const char* device_name = is_mouse ? "mouse" : "keyboard";
         char log_msg[50];
         snprintf(log_msg, sizeof(log_msg), "%s keep-alive (%dms)", device_name, keep_alive);
+        setChecksum(keep_alive_packet, 5);
         
         bool success = radiowrite_ex(
             keep_alive_packet, 
-            sizeof(keep_alive_packet),
+            5,  // Важно: отправляем ровно 5 байт
             log_msg,
             3,
             true
