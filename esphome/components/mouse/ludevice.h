@@ -105,6 +105,11 @@
 #include <EEPROM.h>
 #endif
 
+using DeviceType = enum {
+    DEVICE_TYPE_MOUSE,
+    DEVICE_TYPE_KEYBOARD
+};
+
 class ludevice
 {
 private:
@@ -317,10 +322,7 @@ public:
     ludevice(uint8_t _cepin, uint8_t _cspin);
     ludevice();
     
-    using DeviceType = enum {
-        DEVICE_TYPE_MOUSE,
-        DEVICE_TYPE_KEYBOARD
-    };
+
 
     void setDeviceType(DeviceType type) {
         device_type = type;
