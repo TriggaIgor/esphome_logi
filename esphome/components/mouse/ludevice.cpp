@@ -163,7 +163,11 @@ void ludevice::log_detected_devices() {
             
             if (radio.available() && len >= 5) { // Минимум 5 байт для MAC
                 radio.read(packet, len);
-                
+                if (memcmp(packet, rf_address, 5) == 0) {
+                    printf( "Ignoring self: %02X:%02X:%02X:%02X:%02X", 
+                             packet[0], packet[1], packet[2], packet[3], packet[4]);
+                    continue;
+                }
                 // Фильтрация валидных MAC-адресов
                 if (packet[0] != 0x00 && packet[0] != 0xFF) {
                     printf( "[CH.%02d] MAC: %02X:%02X:%02X:%02X:%02X, Len: %d",
