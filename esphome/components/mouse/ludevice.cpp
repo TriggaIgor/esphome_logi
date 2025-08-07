@@ -6,7 +6,7 @@
  version 2 as published by the Free Software Foundation.
 */
 #include "ludevice.h"
-
+#include "esphome/core/log.h" 
 #ifdef EEPROM_SUPPORT
 #include <EEPROM.h>
 #endif
@@ -140,64 +140,76 @@ bool ludevice::is_other_device_active() {
     return activity_detected;
 }
 
-void ludevice::log_detected_devices() {
-    const uint32_t SCAN_INTERVAL = 5000; // Сканировать каждые 5 секунд
-    if (millis() - last_scan_time < SCAN_INTERVAL) return;
+
+
+void ludevice::log_detected_devices(bool force) {
+    const uint32_t current_time = millis();
     
-    last_scan_time = millis();
+    // Проверяем интервал и флаг принудительного сканирования
+    if (!force && (current_time - last_scan_time < log_interval)) {
+        return;
+    }
     
+    last_scan_time = current_time;
     uint8_t original_channel = current_channel;
     bool found_devices = false;
     
-    printf( "Starting device scan on %d channels...\r\n", CHANNEL_TX_COUNT);
+    ESP_LOGI("ludevice", "Starting device scan on %d channels", CHANNEL_TX_COUNT);
     
-    for (uint8_t i = 0; i < CHANNEL_TX_COUNT; i++) {
-        radio.setChannel(channel_tx[i]);
+    // Быстрое сканирование только основных каналов
+    const uint8_t main_channels[] = {5, 20, 35, 50, 65};
+    const uint8_t num_channels = sizeof(main_channels) / sizeof(main_channels[0]);
+    
+    for (uint8_t i = 0; i < num_channels; i++) {
+        radio.setChannel(main_channels[i]);
         radio.startListening();
-        delayMicroseconds(300); // Увеличиваем время прослушивания
-        printf("%s","Radio Power Detector\r\n");
-        if (radio.testRPD()) { // Radio Power Detector
-            uint8_t packet[32];
-            uint8_t len = radio.getDynamicPayloadSize();
-            if (len > sizeof(packet)) len = sizeof(packet);
-            
-            if (radio.available() && len >= 5) { // Минимум 5 байт для MAC
-                radio.read(packet, len);
-                if (memcmp(packet, rf_address, 5) == 0) {
-                    printf( "Ignoring self: %02X:%02X:%02X:%02X:%02X\r\n", 
-                             packet[0], packet[1], packet[2], packet[3], packet[4]);
-                    continue;
-                }
-                // Фильтрация валидных MAC-адресов
-                if (packet[0] != 0x00 && packet[0] != 0xFF) {
-                    printf( "[CH.%02d] MAC: %02X:%02X:%02X:%02X:%02X, Len: %d\r\n",
-                             channel_tx[i],
-                             packet[0], packet[1], packet[2], packet[3], packet[4],
-                             len);
+        
+        // Неблокирующая проверка активности
+        uint32_t start_listen = millis();
+        while (millis() - start_listen < 2) { // Максимум 2мс на канал
+            if (radio.testRPD()) {
+                uint8_t packet[32];
+                uint8_t len = radio.getDynamicPayloadSize();
+                if (len > sizeof(packet)) len = sizeof(packet);
+                
+                if (radio.available() && len >= 5) {
+                    radio.read(packet, len);
                     
-                    // Дополнительная информация о типе устройства
-                    if (len > 1) {
+                    // Фильтр валидных устройств Logitech
+                    bool is_logitech = (packet[0] == 0x00 || packet[0] == 0xA5);
+                    bool is_self = memcmp(packet, rf_address, 5) == 0;
+                    
+                    if (is_logitech && !is_self) {
+                        // Определение типа устройства
                         const char* device_type = "Unknown";
-                        switch (packet[1]) {
-                            case 0xC2: device_type = "Mouse"; break;
-                            case 0xD3: device_type = "Keyboard"; break;
-                            case 0x51: device_type = "HID++"; break;
+                        if (len > 1) {
+                            switch (packet[1]) {
+                                case 0xC2: device_type = "Mouse"; break;
+                                case 0xD3: device_type = "Keyboard"; break;
+                                case 0x51: device_type = "HID++"; break;
+                            }
                         }
-                        printf( "  Type: %s, First bytes: %02X %02X %02X\r\n", 
-                                 device_type, packet[0], packet[1], packet[2]);
+                        
+                        ESP_LOGI("ludevice", 
+                            "[CH.%02d] MAC: %02X:%02X:%02X:%02X:%02X Type: %s", 
+                            main_channels[i],
+                            packet[0], packet[1], packet[2], packet[3], packet[4],
+                            device_type);
+                        
+                        found_devices = true;
                     }
-                    found_devices = true;
                 }
             }
+            yield(); // Важно для ESP8266
         }
-        yield(); // Важно для ESP8266
     }
     
+    // Восстановление исходного состояния
     radio.setChannel(original_channel);
     radio.stopListening();
     
     if (!found_devices) {
-        printf("%s", "No devices found in this scan\r\n");
+        ESP_LOGD("ludevice", "No devices found in this scan");
     }
 }
 
@@ -387,7 +399,11 @@ void ludevice::loop(void)
         hidpp10(rf_payload, response_size);
         processed++;
     }
-    log_detected_devices();
+    static uint32_t last_log_time = 0;
+    if (millis() - last_log_time > 3000) { // Каждые 30 секунд
+        log_detected_devices();
+        last_log_time = millis();
+    }
     stay_alive_keyboard();
 }
 
