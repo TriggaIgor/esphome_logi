@@ -112,7 +112,7 @@ bool ludevice::is_other_device_active() {
     for (uint8_t i = 0; i < CHANNEL_TX_COUNT; i++) {
         radio.setChannel(channel_tx[i]);
         radio.startListening();
-        delay(2); // Кратковременное прослушивание
+        delay(20); // Кратковременное прослушивание
         
         // Проверяем наличие сигнала
         if (radio.testRPD()) { // testRPD() обнаруживает радиосигнал
