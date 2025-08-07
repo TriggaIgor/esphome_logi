@@ -149,7 +149,7 @@ void ludevice::log_detected_devices() {
     uint8_t original_channel = current_channel;
     bool found_devices = false;
     
-    ESP_LOGI(TAG, "Starting device scan on %d channels...", CHANNEL_TX_COUNT);
+    printf( "Starting device scan on %d channels...", CHANNEL_TX_COUNT);
     
     for (uint8_t i = 0; i < CHANNEL_TX_COUNT; i++) {
         radio.setChannel(channel_tx[i]);
