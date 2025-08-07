@@ -277,8 +277,8 @@ private:
     uint8_t keep_alive_packet[5] = {
         0x00,
         LOGITACKER_DEVICE_REPORT_TYPES_KEEP_ALIVE,
-        0x01, 0x00, // timeout, 00:6E is 110ms, 01:00 is 256ms, 04:B0 is 1200ms
-        0xEA        // checksum
+        0x00, 0x00, // timeout, 00:6E is 110ms, 01:00 is 256ms, 04:B0 is 1200ms
+        0x00        // checksum
     };
     /* Enf of pre-defined pairing packets */
 
