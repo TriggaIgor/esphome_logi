@@ -4,7 +4,6 @@
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/log.h"
 #include <RF24.h>
-#include <AES.h>
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -27,7 +26,7 @@ public:
 private:
     RF24 radio;
     uint8_t rf_address[5];
-    uint8_t device_key[16];
+    uint8_t device_key[16];  // Сохраняем для совместимости
     uint8_t current_channel;
     bool is_paired = false;
     uint32_t last_channel_scan = 0;
