@@ -109,7 +109,7 @@ class ludevice
 {
 private:
     RF24 radio;
-    DeviceType device_type = DEVICE_TYPE_MOUSE; // По умолчанию
+    DeviceType device_type; // По умолчанию
     void setChecksum(uint8_t *payload, uint8_t len);
     void setAddress(uint8_t *address);
     void setAddress(uint64_t address);
