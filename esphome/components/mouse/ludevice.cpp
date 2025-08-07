@@ -119,15 +119,26 @@ bool ludevice::is_other_device_active() {
             // Проверяем, не наш ли это пакет
             if (radio.available()) {
                 uint8_t temp_packet[32];
-                radio.read(temp_packet, sizeof(temp_packet));
+                uint8_t read_size = radio.getDynamicPayloadSize();
+                if (read_size > sizeof(temp_packet)) read_size = sizeof(temp_packet);
+                radio.read(temp_packet, read_size);
+                
+                // Логируем MAC-адрес обнаруженного устройства
+                char mac_buffer[20];
+                snprintf(mac_buffer, sizeof(mac_buffer), "%02X:%02X:%02X:%02X:%02X",
+                         temp_packet[4], temp_packet[3], temp_packet[2], temp_packet[1], temp_packet[0]);
                 
                 // Сравниваем MAC-адрес
                 if (memcmp(temp_packet, rf_address, 5) != 0) {
+                    printf("Detected other device: %s on channel %d\n", mac_buffer, channel_tx[i]);
                     activity_detected = true;
                     break;
+                } else {
+                    printf("Detected our own device: %s on channel %d\n", mac_buffer, channel_tx[i]);
                 }
             } else {
-                // Сигнал есть, но не наш пакет
+                // Сигнал есть, но пакет не наш
+                printf("Detected RF activity on channel %d (no packet decoded)\n", channel_tx[i]);
                 activity_detected = true;
                 break;
             }
