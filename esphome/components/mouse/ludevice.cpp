@@ -345,40 +345,44 @@ void ludevice::stay_alive(void) {
     static uint32_t last_check = 0;
     const uint32_t now = millis();
     const bool is_mouse = (device_type == LOGITACKER_DEVICE_UNIFYING_TYPE_MOUSE);
+    uint16_t calculated_keep_alive = keep_alive;  // Инициализируем текущим значением
 
     // Обновление интервалов раз в секунду
     if (now - last_check > 1000) {
         last_check = now;
-        uint16_t new_keep_alive = keep_alive;
+        uint16_t new_interval = keep_alive;
 
         // Общая логика для всех устройств
         if (idle_timer > 60000) {
-            new_keep_alive = 1200; // Режим глубокого сна
+            new_interval = 1200; // Режим глубокого сна
         }
         // Специфичная логика для мыши
         else if (is_mouse && idle_timer > 30000) {
-            new_keep_alive = 1200;
+            new_interval = 1200;
         } 
         // Специфичная логика для клавиатуры
         else if (!is_mouse && idle_timer > 30000) {
-            new_keep_alive = 278; // Промежуточный режим
+            new_interval = 278; // Промежуточный режим
         }
         // Активный режим
         else if (idle_timer <= 30000) {
-            new_keep_alive = is_mouse ? 110 : 100;
+            new_interval = is_mouse ? 110 : 100;
         }
 
-        if (new_keep_alive != keep_alive) {
-            update_keep_alive(new_keep_alive, 3, true);
+        if (new_interval != keep_alive) {
+            update_keep_alive(new_interval, 3, true);
         }
+        
+        // Сохраняем значение для использования вне блока
+        calculated_keep_alive = new_interval;
     }
 
     // Вычисление интервала отправки
-    uint16_t send_interval = new_keep_alive;
+    uint16_t send_interval = calculated_keep_alive;
     
     // Корректировка только для мыши в активном режиме
-    if (is_mouse && new_keep_alive == 110) {
-        send_interval = 110; // Строго 110 мс для мыши
+    if (is_mouse && calculated_keep_alive == 110) {
+        send_interval = 110;
     }
 
     // Отправка keep-alive
@@ -400,7 +404,6 @@ void ludevice::stay_alive(void) {
         else send_alive_timer -= 100; // Ретри быстрее
     }
 }
-
 
 bool ludevice::update_keep_alive(uint16_t timeout, uint8_t retry, bool silent)
 {
