@@ -695,7 +695,7 @@ bool ludevice::radiowrite_ex(uint8_t *packet, uint8_t packet_size, const char *n
                current_channel,
                success ? ' ' : '!',
                hexs(packet, packet_size));
-        if (name) printf(" - %s", name);
+        if (name) printf(" - %s\r\n", name);
         printf("\r\n");
     }
 
