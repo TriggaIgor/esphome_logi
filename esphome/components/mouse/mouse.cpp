@@ -87,7 +87,7 @@ void LogitechUnifying::move(int16_t x, int16_t y) {
         rf_address[0], 0xC2, 0x00,
         static_cast<uint8_t>(x & 0xFF), static_cast<uint8_t>((x >> 8) & 0x0F),
         static_cast<uint8_t>(y & 0xFF), static_cast<uint8_t>((y >> 8) & 0x0F),
-        0x00, 0x00, 0x00, 0x00
+        0x00, 0x00, 0x00
     };
     
     // Расчет контрольной суммы
