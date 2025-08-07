@@ -6,6 +6,7 @@
 namespace esphome {
 namespace mouse {
 
+const char *const Mouse::TAG = "mouse";
 // Конфигурация RF24
 static const uint64_t BASE_ADDRESS = 0xBB0ADCA575LL;
 static const uint8_t CHANNELS[] = {5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77};
