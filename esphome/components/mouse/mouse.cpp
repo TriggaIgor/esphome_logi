@@ -1,19 +1,14 @@
 #include "mouse.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/hal.h"
-#include "esphome/core/random.h"
 #include <EEPROM.h>
 
 namespace esphome {
 namespace mouse {
 
-// Определяем TAG для LogitechUnifying
 const char *const LogitechUnifying::TAG = "unifying";
-
-// Определяем TAG для Mouse
 const char *const Mouse::TAG = "mouse";
 
-// Конфигурация RF24
 static const uint64_t BASE_ADDRESS = 0xBB0ADCA575LL;
 static const uint8_t CHANNELS[] = {5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77};
 static const uint8_t CHANNEL_COUNT = sizeof(CHANNELS) / sizeof(CHANNELS[0]);
@@ -45,7 +40,7 @@ void LogitechUnifying::save_to_eeprom() {
     EEPROM.put(0, rf_address);
     EEPROM.put(sizeof(rf_address), device_key);
     if (EEPROM.commit()) {
-        ESP_LOGI(TAG, "Settings saved to EEPROM");
+        ESP_LOGI(TAG, "Settings saved");
     } else {
         ESP_LOGE(TAG, "EEPROM commit failed");
     }
@@ -66,7 +61,7 @@ void LogitechUnifying::load_from_eeprom() {
     if (valid) {
         ESP_LOGI(TAG, "Loaded from EEPROM");
     } else {
-        ESP_LOGW(TAG, "No valid settings in EEPROM");
+        ESP_LOGW(TAG, "No valid settings");
         memset(rf_address, 0, sizeof(rf_address));
     }
 }
@@ -77,12 +72,15 @@ bool LogitechUnifying::pair() {
     radio.stopListening();
     radio.setChannel(CHANNELS[0]);
     
+    // Используем системный таймер для генерации "случайных" чисел
+    uint32_t seed = micros();
     for (int i = 0; i < 5; i++) {
-        rf_address[i] = random_uint32() % 256;
+        seed = seed * 1103515245 + 12345;
+        rf_address[i] = (seed >> 16) & 0xFF;
     }
     
     for (int attempt = 1; attempt <= 3; attempt++) {
-        ESP_LOGD(TAG, "Pairing attempt %d/3", attempt);
+        ESP_LOGD(TAG, "Attempt %d/3", attempt);
         
         if (send_pairing_packet()) {
             save_to_eeprom();
@@ -126,8 +124,10 @@ bool LogitechUnifying::reconnect() {
         address |= static_cast<uint64_t>(rf_address[i]) << (i * 8);
     }
     
+    // Простой способ выбора случайного канала
+    uint8_t random_index = (micros() >> 4) % CHANNEL_COUNT;
     radio.openWritingPipe(address);
-    radio.setChannel(CHANNELS[random_uint32() % CHANNEL_COUNT]);
+    radio.setChannel(CHANNELS[random_index]);
     radio.stopListening();
     
     ESP_LOGI(TAG, "Reconnected");
@@ -137,9 +137,9 @@ bool LogitechUnifying::reconnect() {
 void LogitechUnifying::move(int16_t x, int16_t y) {
     // Ограничение значений
     if (x > 2047) x = 2047;
-    if (x < -2048) x = -2048;
+    else if (x < -2048) x = -2048;
     if (y > 2047) y = 2047;
-    if (y < -2048) y = -2048;
+    else if (y < -2048) y = -2048;
     
     uint8_t x_sign = (x < 0) ? 0x40 : 0;
     uint8_t y_sign = (y < 0) ? 0x40 : 0;
@@ -161,22 +161,22 @@ void LogitechUnifying::move(int16_t x, int16_t y) {
     packet[9] = ~sum + 1;
     
     if (!radio.write(packet, sizeof(packet))) {
-        ESP_LOGW(TAG, "Move packet failed");
+        ESP_LOGW(TAG, "Move failed");
     }
 }
 
 bool LogitechUnifying::is_other_device_active() {
-    // Упрощенная реализация
-    return false;
+    return false; // Упрощенная реализация
 }
 
 void LogitechUnifying::loop() {
     static uint32_t last_channel_change = 0;
     if (millis() - last_channel_change > 5000) {
-        current_channel = CHANNELS[random_uint32() % CHANNEL_COUNT];
+        uint8_t random_index = (micros() >> 4) % CHANNEL_COUNT;
+        current_channel = CHANNELS[random_index];
         radio.setChannel(current_channel);
         last_channel_change = millis();
-        ESP_LOGD(TAG, "Channel changed to %d", current_channel);
+        ESP_LOGD(TAG, "Channel changed");
     }
 }
 
@@ -186,6 +186,7 @@ void Mouse::setup() {
     unifying_ = make_unique<LogitechUnifying>(ce_pin_, cs_pin_);
     
     if (!unifying_->begin()) {
+        ESP_LOGE(TAG, "RF24 init failed");
         return;
     }
     
