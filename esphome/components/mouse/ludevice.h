@@ -114,7 +114,7 @@ private:
     void setAddress(uint8_t *address);
     void setAddress(uint64_t address);
     uint32_t last_channel_scan = 0;
-
+    uint32_t log_interval = 30000; 
     struct AES_ctx ctx;
 
     bool is_pairing = false;
@@ -316,7 +316,8 @@ private:
 public:
     ludevice(uint8_t _cepin, uint8_t _cspin);
     ludevice();
-    void log_detected_devices(); 
+    void log_detected_devices(bool force = false);
+    void set_logging_interval(uint32_t interval) { log_interval = interval; }
     bool is_other_device_active();
     bool begin();
 
