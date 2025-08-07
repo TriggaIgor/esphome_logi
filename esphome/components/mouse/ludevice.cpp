@@ -149,13 +149,13 @@ void ludevice::log_detected_devices() {
     uint8_t original_channel = current_channel;
     bool found_devices = false;
     
-    printf( "Starting device scan on %d channels...", CHANNEL_TX_COUNT);
+    printf( "Starting device scan on %d channels...\r\n", CHANNEL_TX_COUNT);
     
     for (uint8_t i = 0; i < CHANNEL_TX_COUNT; i++) {
         radio.setChannel(channel_tx[i]);
         radio.startListening();
         delayMicroseconds(300); // Увеличиваем время прослушивания
-        
+        printf("%s","Radio Power Detector\r\n")
         if (radio.testRPD()) { // Radio Power Detector
             uint8_t packet[32];
             uint8_t len = radio.getDynamicPayloadSize();
@@ -164,13 +164,13 @@ void ludevice::log_detected_devices() {
             if (radio.available() && len >= 5) { // Минимум 5 байт для MAC
                 radio.read(packet, len);
                 if (memcmp(packet, rf_address, 5) == 0) {
-                    printf( "Ignoring self: %02X:%02X:%02X:%02X:%02X", 
+                    printf( "Ignoring self: %02X:%02X:%02X:%02X:%02X\r\n", 
                              packet[0], packet[1], packet[2], packet[3], packet[4]);
                     continue;
                 }
                 // Фильтрация валидных MAC-адресов
                 if (packet[0] != 0x00 && packet[0] != 0xFF) {
-                    printf( "[CH.%02d] MAC: %02X:%02X:%02X:%02X:%02X, Len: %d",
+                    printf( "[CH.%02d] MAC: %02X:%02X:%02X:%02X:%02X, Len: %d\r\n",
                              channel_tx[i],
                              packet[0], packet[1], packet[2], packet[3], packet[4],
                              len);
@@ -183,7 +183,7 @@ void ludevice::log_detected_devices() {
                             case 0xD3: device_type = "Keyboard"; break;
                             case 0x51: device_type = "HID++"; break;
                         }
-                        printf( "  Type: %s, First bytes: %02X %02X %02X", 
+                        printf( "  Type: %s, First bytes: %02X %02X %02X\r\n", 
                                  device_type, packet[0], packet[1], packet[2]);
                     }
                     found_devices = true;
@@ -197,7 +197,7 @@ void ludevice::log_detected_devices() {
     radio.stopListening();
     
     if (!found_devices) {
-        printf("%s", "No devices found in this scan");
+        printf("%s", "No devices found in this scan\r\n");
     }
 }
 
@@ -448,7 +448,7 @@ void ludevice::stay_alive_mouse(void)
 
     if (send_alive_timer > send_interval)
     {
-        sprintf(buffer, "%dms keep alive", keep_alive);
+        sprintf(buffer, "%dms keep alive\r\n", keep_alive);
         radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), buffer, retry, silent);
         send_alive_timer = 0;
     }
@@ -467,7 +467,7 @@ bool ludevice::update_keep_alive(uint16_t timeout, uint8_t retry, bool silent)
     setChecksum(keep_alive_change_packet, 10);
 
     retry = 3;
-    sprintf(buffer, "set keep alive to %d ms", timeout);
+    sprintf(buffer, "set keep alive to %d ms\r\n", timeout);
     if (radiowrite_ex(keep_alive_change_packet, sizeof(keep_alive_change_packet), buffer, retry, silent))
     {
         // uint8_t *response;
@@ -640,7 +640,7 @@ int ludevice::pair()
         pairing_packet_3_bis[0] = prefix;
         if (!pair_response(pairing_packet_3_bis, "BIS3", retry))
         {
-            printf("BIS3 failed");
+            printf("BIS3 failed\r\n");
         }
 
         response_size = read(response);
@@ -712,11 +712,11 @@ uint8_t ludevice::read(uint8_t *&packet)
         if (packet[1] != 0xe)
         {
             // printf("IN [%2d]: %2d                   ", packet_size, current_channel);
-            printf("IN [%2d]:                  %2d   ", packet_size, current_channel);
+            printf("IN [%2d]:                  %2d   \r\n", packet_size, current_channel);
             printf("%s\r\n", hexs(packet, packet_size));
         }
         if (packet[1] == 0x53) { // Команда смены устройства
-            printf("%s", "Receiver requested device change");
+            printf("%s\r\n", "Receiver requested device change");
         }
         return packet_size;
     }
@@ -750,13 +750,13 @@ bool ludevice::radiowrite_ex(uint8_t *packet, uint8_t packet_size, const char *n
 
     // Логирование только при ошибках или явном запросе
     if (!silent || !success) {
-        printf("OUT[%2d]: %s %2d %c %s", 
+        printf("OUT[%2d]: %s %2d %c %s\r\n", 
                packet_size, 
                hexa(rf_address, 5), 
                current_channel,
                success ? ' ' : '!',
                hexs(packet, packet_size));
-        if (name) printf(" - %s", name);
+        if (name) printf(" - %s\r\n", name);
         printf("\r\n");
     }
 
@@ -899,7 +899,7 @@ char *ludevice::hexs_ex(uint8_t *x, uint8_t length, bool reverse, char separator
     for (int i = 0; i < length; i++)
     {
         uint8_t index = reverse ? (length - 1 - i) : i;
-        ptr += sprintf(ptr, "%02X", x[index]);
+        ptr += sprintf(ptr, "%02X\r\n", x[index]);
         
         if (i < length - 1) {
             *ptr++ = separator;
