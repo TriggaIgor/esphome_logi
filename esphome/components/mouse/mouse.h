@@ -4,7 +4,7 @@
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/log.h"
 #include <RF24.h>
-#include "aes.h"
+#include aes.h
 #include <vector>
 #include <cmath>
 
@@ -57,14 +57,15 @@ public:
     void set_cs_pin(uint8_t pin) { cs_pin_ = pin; }
 
 private:
-    static const char *const TAG;
+    static const char *const TAG;  // Только объявление, без определения
+    
     uint8_t ce_pin_ = 2;
     uint8_t cs_pin_ = 0;
     bool enabled_ = true;
     uint32_t last_move_ = 0;
     float angle_ = 0.0f;
     
-    // Параметры конфигурации (используются как заглушки)
+    // Параметры конфигурации
     float base_speed_ = 15.0f;
     float jitter_amount_ = 2.5f;
     float movement_speed_ = 0.7f;
@@ -76,8 +77,6 @@ private:
     std::unique_ptr<LogitechUnifying> unifying_;
     void move_in_circle();
 };
-
-const char *const Mouse::TAG = "mouse";
 
 }  // namespace mouse
 }  // namespace esphome
