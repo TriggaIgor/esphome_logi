@@ -317,10 +317,10 @@ public:
     ludevice(uint8_t _cepin, uint8_t _cspin);
     ludevice();
     
-    typedef enum {
+    using DeviceType = enum {
         DEVICE_TYPE_MOUSE,
         DEVICE_TYPE_KEYBOARD
-    } DeviceType;
+    };
 
     void setDeviceType(DeviceType type) {
         device_type = type;
