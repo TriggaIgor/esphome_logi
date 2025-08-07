@@ -165,7 +165,39 @@ void LogitechUnifying::AES_ECB_encrypt(struct AES_ctx *ctx, uint8_t *buf) {
 // Конец реализации AES
 // =====================================================
 
-LogitechUnifying::LogitechUnifying(uint8_t ce_pin, uint8_t cs_pin) : radio(ce_pin, cs_pin) {}
+LogitechUnifying::LogitechUnifying(uint8_t ce_pin, uint8_t cs_pin) : radio(ce_pin, cs_pin) {
+    // Инициализация пакетов для сопряжения
+    uint8_t pairing_packet_1_init[22] = {
+        0xF0, 0x5F, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x14, 0x17, 0x10, 0x02, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1A, 0xEC
+    };
+    memcpy(pairing_packet_1, pairing_packet_1_init, sizeof(pairing_packet_1));
+
+    uint8_t pairing_packet_1_bis_init[5] = {0xF0, 0x4F, 0x01, 0x84, 0x26};
+    memcpy(pairing_packet_1_bis, pairing_packet_1_bis_init, sizeof(pairing_packet_1_bis));
+
+    uint8_t pairing_packet_2_init[22] = {
+        0x00, 0x5F, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
+    memcpy(pairing_packet_2, pairing_packet_2_init, sizeof(pairing_packet_2));
+
+    uint8_t pairing_packet_2_bis_init[5] = {0x00, 0x4F, 0x02, 0x12, 0xbd};
+    memcpy(pairing_packet_2_bis, pairing_packet_2_bis_init, sizeof(pairing_packet_2_bis));
+
+    uint8_t pairing_packet_3_init[22] = {
+        0x00, 0x5F, 0x03, 0x01, 0x03, 0x41, 0x42, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB6
+    };
+    memcpy(pairing_packet_3, pairing_packet_3_init, sizeof(pairing_packet_3));
+
+    uint8_t pairing_packet_3_bis_init[5] = {0x00, 0x4F, 0x03, 0x01, 0x0f};
+    memcpy(pairing_packet_3_bis, pairing_packet_3_bis_init, sizeof(pairing_packet_3_bis));
+
+    uint8_t pairing_packet_4_init[10] = {
+        0x00, 0x4F, 0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0xED
+    };
+    memcpy(pairing_packet_4, pairing_packet_4_init, sizeof(pairing_packet_4));
+}
+
+
 
 bool LogitechUnifying::begin() {
     if (!radio.begin()) {
@@ -219,36 +251,131 @@ void LogitechUnifying::load_from_eeprom() {
 }
 
 bool LogitechUnifying::pair() {
-    ESP_LOGI(TAG, "Starting pairing...");
-    
-    radio.stopListening();
-    radio.setChannel(CHANNELS[0]);
-    
-    // Генерация случайного MAC-адреса
-    uint32_t seed = micros();
-    for (int i = 0; i < 5; i++) {
-        seed = seed * 1103515245 + 12345;
-        rf_address[i] = (seed >> 16) & 0xFF;
-    }
-    
-    for (int attempt = 1; attempt <= 3; attempt++) {
-        ESP_LOGD(TAG, "Attempt %d/3", attempt);
-        
-        if (send_pairing_packet()) {
-            save_to_eeprom();
-            is_paired = true;
-            ESP_LOGI(TAG, "Pairing successful");
-            
-            // Инициализация AES контекста
-            AES_init_ctx(&aes_ctx_, device_key);
-            
-            return true;
+    bool passed;
+    uint8_t retry = 5;
+    uint8_t bis_retry;
+    uint8_t response_size;
+    uint8_t *response;
+    uint8_t prefix;
+
+    is_pairing = true;
+    setAddress((uint8_t*)&BASE_ADDRESS);
+
+    // Phase 1
+    prefix = PAIRING_MARKER_PHASE_1;
+    pairing_packet_1[0] = prefix;
+    pairing_packet_1[3] = rf_address[4];
+    pairing_packet_1[4] = rf_address[3];
+    pairing_packet_1[5] = rf_address[2];
+    pairing_packet_1[6] = rf_address[1];
+    pairing_packet_1[7] = rf_address[0];
+
+    if (!radiowrite(pairing_packet_1, 22, "REQ1", retry))
+        return false;
+
+    lock_channel = true;
+
+    memcpy(device_raw_key_material, pairing_packet_1 + LOGITACKER_UNIFYING_PAIRING_RSP1_OFFSET_BASE_ADDR, 4);
+    memcpy(device_raw_key_material + 4, pairing_packet_1 + LOGITACKER_UNIFYING_PAIRING_REQ1_OFFSET_DEVICE_WPID, 2);
+
+    pairing_packet_1_bis[0] = prefix;
+    pairing_packet_1_bis[3] = pairing_packet_1[3];
+    bis_retry = 5;
+    while (bis_retry) {
+        if (pair_response(pairing_packet_1_bis, "BIS1", 1)) {
+            response_size = read(response);
+            if (response_size > 0 && response[0] == prefix)
+                break;
         }
-        delay(100);
+        bis_retry--;
     }
+    if (bis_retry == 0)
+        return false;
+
+    memcpy(device_raw_key_material + 6, response + LOGITACKER_UNIFYING_PAIRING_RSP1_OFFSET_DONGLE_WPID, 2);
+    for (int i = 0; i < 5; i++)
+        rf_address[i] = response[3 + (4 - i)];
+    setAddress(rf_address);
+
+    // Phase 2
+    prefix = PAIRING_MARKER_PHASE_2;
+    pairing_packet_2[0] = prefix;
+
+    nonce = random_uint32();
+    pairing_packet_2[3] = (nonce >> 24) & 0xFF;
+    pairing_packet_2[4] = (nonce >> 16) & 0xFF;
+    pairing_packet_2[5] = (nonce >> 8) & 0xFF;
+    pairing_packet_2[6] = nonce & 0xFF;
+
+    serial = random_uint32();
+    pairing_packet_2[7] = (serial >> 24) & 0xFF;
+    pairing_packet_2[8] = (serial >> 16) & 0xFF;
+    pairing_packet_2[9] = (serial >> 8) & 0xFF;
+    pairing_packet_2[10] = serial & 0xFF;
+
+    if (!radiowrite(pairing_packet_2, 22, "REQ2", retry))
+        return false;
+
+    memcpy(device_raw_key_material + 8, pairing_packet_2 + LOGITACKER_UNIFYING_PAIRING_REQ2_OFFSET_DEVICE_NONCE, 4);
+
+    pairing_packet_2_bis[0] = prefix;
+    bis_retry = 5;
+    while (bis_retry) {
+        if (pair_response(pairing_packet_2_bis, "BIS2", 1)) {
+            response_size = read(response);
+            if (response_size > 0 && response[0] == prefix)
+                break;
+        }
+        bis_retry--;
+    }
+    if (bis_retry == 0)
+        return false;
+
+    memcpy(device_raw_key_material + 12, response + LOGITACKER_UNIFYING_PAIRING_RSP2_OFFSET_DONGLE_NONCE, 4);
+
+    // Phase 3
+    prefix = PAIRING_MARKER_PHASE_3;
+    pairing_packet_3[0] = prefix;
+    const char *device_name = "ESPMouse";
+    pairing_packet_3[4] = strlen(device_name);
+    memcpy(pairing_packet_3 + 5, device_name, pairing_packet_3[4]);
+
+    if (!radiowrite(pairing_packet_3, 22, "REQ3", retry))
+        return false;
+
+    pairing_packet_3_bis[0] = prefix;
+    if (!pair_response(pairing_packet_3_bis, "BIS3", retry))
+        return false;
+
+    // Final packet
+    if (!radiowrite(pairing_packet_4, 10, "Final", retry))
+        return false;
+
+    // Generate device key
+    device_key[2] = device_raw_key_material[0];
+    device_key[1] = device_raw_key_material[1] ^ 0xFF;
+    device_key[5] = device_raw_key_material[2] ^ 0xFF;
+    device_key[3] = device_raw_key_material[3];
+    device_key[14] = device_raw_key_material[4];
+    device_key[11] = device_raw_key_material[5];
+    device_key[9] = device_raw_key_material[6];
+    device_key[0] = device_raw_key_material[7];
+    device_key[8] = device_raw_key_material[8];
+    device_key[6] = device_raw_key_material[9] ^ 0x55;
+    device_key[4] = device_raw_key_material[10];
+    device_key[15] = device_raw_key_material[11];
+    device_key[10] = device_raw_key_material[12] ^ 0xFF;
+    device_key[12] = device_raw_key_material[13];
+    device_key[7] = device_raw_key_material[14];
+    device_key[13] = device_raw_key_material[15] ^ 0x55;
+
+    // Initialize AES
+    AES_init_ctx(&aes_ctx_, device_key);
     
-    ESP_LOGE(TAG, "Pairing failed");
-    return false;
+    save_to_eeprom();
+    is_paired = true;
+    lock_channel = false;
+    return true;
 }
 
 bool LogitechUnifying::send_pairing_packet() {
@@ -342,6 +469,75 @@ void LogitechUnifying::logitacker_unifying_crypto_encrypt_keyboard_frame(uint8_t
     for (int i = 0; i < 21; i++) sum += rf_frame[i];
     rf_frame[21] = ~sum + 1;
 }
+
+void LogitechUnifying::setAddress(uint8_t *address) {
+    uint8_t address_dongle[5];
+    memcpy(address_dongle, address, 4);
+    address_dongle[0] = 0;
+
+    radio.stopListening();
+    radio.openReadingPipe(2, address_dongle);
+    radio.openReadingPipe(1, address);
+    radio.openWritingPipe(address);
+}
+
+void LogitechUnifying::setChecksum(uint8_t *payload, uint8_t len) {
+    uint8_t checksum = 0;
+    for (uint8_t i = 0; i < (len - 1); i++)
+        checksum += payload[i];
+    payload[len - 1] = -checksum;
+}
+
+void LogitechUnifying::changeChannel() {
+    if (is_pairing) {
+        channel_pairing_id = (channel_pairing_id + 1) % 11;
+        current_channel = channel_pairing[channel_pairing_id];
+    } else {        
+        channel_tx_id = (channel_tx_id + 1) % 25;
+        current_channel = channel_tx[channel_tx_id];
+    }
+    radio.setChannel(current_channel);
+}
+
+uint8_t LogitechUnifying::read(uint8_t *&packet) {
+    uint8_t _read_buffer[22];
+    uint8_t packet_size = 22;
+
+    if (radio.available()) {
+        packet = _read_buffer;
+        radio.read(packet, packet_size);
+        return packet_size;
+    }
+    return 0;
+}
+
+bool LogitechUnifying::radiowrite(uint8_t *packet, uint8_t packet_size, const char *name, uint8_t retry) {
+    setChecksum(packet, packet_size);
+    for (uint8_t i = 0; i < retry; i++) {
+        if (radio.write(packet, packet_size)) {
+            return true;
+        }
+        if (!lock_channel) {
+            changeChannel();
+            delay(1);
+        }
+    }
+    return false;
+}
+
+bool LogitechUnifying::pair_response(uint8_t *packet, const char *name, uint8_t retry) {
+    while (retry) {
+        if (radiowrite(packet, 5, name, 1)) {
+            uint8_t *response;
+            if (read(response) > 0) {
+                return true;
+            }
+        }
+        retry--;
+    }
+    return false;
+}
+
 
 void LogitechUnifying::move(int16_t x, int16_t y) {
     // Ограничение значений
