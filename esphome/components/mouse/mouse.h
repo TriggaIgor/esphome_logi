@@ -32,6 +32,7 @@ public:
     void update_little_known_secret_counter(uint8_t *counter);
 
 private:
+    struct AES_ctx aes_ctx_; 
     RF24 radio;
     uint8_t rf_address[5];
     uint8_t device_key[16];
