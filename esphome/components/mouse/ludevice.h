@@ -109,7 +109,7 @@ class ludevice
 {
 private:
     RF24 radio;
-
+    uint32_t last_scan_time = 0;
     void setChecksum(uint8_t *payload, uint8_t len);
     void setAddress(uint8_t *address);
     void setAddress(uint64_t address);
@@ -316,7 +316,7 @@ private:
 public:
     ludevice(uint8_t _cepin, uint8_t _cspin);
     ludevice();
-    
+    void log_detected_devices(); 
     bool is_other_device_active();
     bool begin();
 
