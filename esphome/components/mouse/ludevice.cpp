@@ -140,6 +140,63 @@ bool ludevice::is_other_device_active() {
     return activity_detected;
 }
 
+void ludevice::log_detected_devices() {
+    const uint32_t SCAN_INTERVAL = 5000; // Сканировать каждые 5 секунд
+    if (millis() - last_scan_time < SCAN_INTERVAL) return;
+    
+    last_scan_time = millis();
+    
+    uint8_t original_channel = current_channel;
+    bool found_devices = false;
+    
+    ESP_LOGI(TAG, "Starting device scan on %d channels...", CHANNEL_TX_COUNT);
+    
+    for (uint8_t i = 0; i < CHANNEL_TX_COUNT; i++) {
+        radio.setChannel(channel_tx[i]);
+        radio.startListening();
+        delayMicroseconds(300); // Увеличиваем время прослушивания
+        
+        if (radio.testRPD()) { // Radio Power Detector
+            uint8_t packet[32];
+            uint8_t len = radio.getDynamicPayloadSize();
+            if (len > sizeof(packet)) len = sizeof(packet);
+            
+            if (radio.available() && len >= 5) { // Минимум 5 байт для MAC
+                radio.read(packet, len);
+                
+                // Фильтрация валидных MAC-адресов
+                if (packet[0] != 0x00 && packet[0] != 0xFF) {
+                    printf( "[CH.%02d] MAC: %02X:%02X:%02X:%02X:%02X, Len: %d",
+                             channel_tx[i],
+                             packet[0], packet[1], packet[2], packet[3], packet[4],
+                             len);
+                    
+                    // Дополнительная информация о типе устройства
+                    if (len > 1) {
+                        const char* device_type = "Unknown";
+                        switch (packet[1]) {
+                            case 0xC2: device_type = "Mouse"; break;
+                            case 0xD3: device_type = "Keyboard"; break;
+                            case 0x51: device_type = "HID++"; break;
+                        }
+                        printf( "  Type: %s, First bytes: %02X %02X %02X", 
+                                 device_type, packet[0], packet[1], packet[2]);
+                    }
+                    found_devices = true;
+                }
+            }
+        }
+        yield(); // Важно для ESP8266
+    }
+    
+    radio.setChannel(original_channel);
+    radio.stopListening();
+    
+    if (!found_devices) {
+        printf("%s", "No devices found in this scan");
+    }
+}
+
 void ludevice::setChecksum(uint8_t *payload, uint8_t len)
 {
     uint8_t checksum = 0;
