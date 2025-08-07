@@ -383,7 +383,7 @@ void ludevice::loop(void)
         hidpp10(rf_payload, response_size);
         processed++;
     }
-
+    log_detected_devices();
     stay_alive_keyboard();
 }
 
