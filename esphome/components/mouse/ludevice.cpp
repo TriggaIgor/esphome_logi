@@ -155,7 +155,7 @@ void ludevice::log_detected_devices() {
         radio.setChannel(channel_tx[i]);
         radio.startListening();
         delayMicroseconds(300); // Увеличиваем время прослушивания
-        printf("%s","Radio Power Detector\r\n")
+        printf("%s","Radio Power Detector\r\n");
         if (radio.testRPD()) { // Radio Power Detector
             uint8_t packet[32];
             uint8_t len = radio.getDynamicPayloadSize();
