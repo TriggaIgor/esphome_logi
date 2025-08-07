@@ -11,6 +11,11 @@
 namespace esphome {
 namespace mouse {
 
+// Структура контекста AES
+struct AES_ctx {
+    uint8_t RoundKey[176];
+};
+
 class LogitechUnifying {
 public:
     static const char *const TAG;
@@ -22,18 +27,29 @@ public:
     void move(int16_t x, int16_t y);
     void loop();
     bool is_other_device_active();
+    void logitacker_unifying_crypto_encrypt_keyboard_frame(uint8_t *encrypted, uint8_t *plain, uint32_t counter);
+    void logitacker_unifying_crypto_calculate_frame_key(uint8_t *frame_key, uint8_t *counter_bytes, bool silent);
+    void update_little_known_secret_counter(uint8_t *counter);
 
 private:
     RF24 radio;
     uint8_t rf_address[5];
-    uint8_t device_key[16];  // Сохраняем для совместимости
+    uint8_t device_key[16];
+    uint8_t device_raw_key_material[16];
     uint8_t current_channel;
     bool is_paired = false;
     uint32_t last_channel_scan = 0;
+    uint32_t aes_base = 0xed3456ed;
+    uint8_t aes_counter = 0;
+    uint8_t little_known_secret[16] = {
+        0x04, 0x14, 0x1d, 0x1f, 0x27, 0x28, 0x0d, 0xde, 0xad, 0xbe, 0xef, 0x0a, 0x0d, 0x13, 0x26, 0x0e
+    };
     
     void save_to_eeprom();
     void load_from_eeprom();
     bool send_pairing_packet();
+    void AES_init_ctx(struct AES_ctx *ctx, const uint8_t *key);
+    void AES_ECB_encrypt(struct AES_ctx *ctx, uint8_t *buf);
 };
 
 class Mouse : public switch_::Switch, public PollingComponent {
