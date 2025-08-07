@@ -38,6 +38,7 @@ bool LogitechUnifying::begin() {
 
 void LogitechUnifying::save_to_eeprom() {
     EEPROM.put(0, rf_address);
+    // device_key больше не используется, но сохраняем для совместимости
     EEPROM.put(sizeof(rf_address), device_key);
     if (EEPROM.commit()) {
         ESP_LOGI(TAG, "Settings saved");
@@ -48,6 +49,7 @@ void LogitechUnifying::save_to_eeprom() {
 
 void LogitechUnifying::load_from_eeprom() {
     EEPROM.get(0, rf_address);
+    // device_key больше не используется, но загружаем для совместимости
     EEPROM.get(sizeof(rf_address), device_key);
     
     bool valid = true;
@@ -72,7 +74,7 @@ bool LogitechUnifying::pair() {
     radio.stopListening();
     radio.setChannel(CHANNELS[0]);
     
-    // Используем системный таймер для генерации "случайных" чисел
+    // Генерация случайного MAC-адреса
     uint32_t seed = micros();
     for (int i = 0; i < 5; i++) {
         seed = seed * 1103515245 + 12345;
@@ -105,6 +107,7 @@ bool LogitechUnifying::send_pairing_packet() {
         0x00
     };
     
+    // Расчет контрольной суммы
     uint8_t sum = 0;
     for (int i = 0; i < 21; i++) sum += packet[i];
     packet[21] = ~sum + 1;
@@ -124,7 +127,7 @@ bool LogitechUnifying::reconnect() {
         address |= static_cast<uint64_t>(rf_address[i]) << (i * 8);
     }
     
-    // Простой способ выбора случайного канала
+    // Выбор случайного канала
     uint8_t random_index = (micros() >> 4) % CHANNEL_COUNT;
     radio.openWritingPipe(address);
     radio.setChannel(CHANNELS[random_index]);
@@ -156,6 +159,7 @@ void LogitechUnifying::move(int16_t x, int16_t y) {
         0x00
     };
     
+    // Расчет контрольной суммы
     uint8_t sum = 0;
     for (int i = 0; i < 9; i++) sum += packet[i];
     packet[9] = ~sum + 1;
