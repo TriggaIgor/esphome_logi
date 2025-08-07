@@ -3,16 +3,20 @@
 #include "esphome/core/component.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/log.h"
+#include "esphome/core/random.h"
 #include <RF24.h>
-#include "aes.h"
+#include <AES.h>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 namespace esphome {
 namespace mouse {
 
 class LogitechUnifying {
 public:
+    static const char *const TAG;  // Добавлено объявление TAG
+    
     LogitechUnifying(uint8_t ce_pin, uint8_t cs_pin);
     bool begin();
     bool pair();
@@ -43,7 +47,6 @@ public:
     void write_state(bool state) override;
     void dump_config() override;
     
-    // Методы для конфигурации из YAML
     void set_base_speed(float speed) { base_speed_ = speed; }
     void set_jitter_amount(float jitter) { jitter_amount_ = jitter; }
     void set_movement_speed(float speed) { movement_speed_ = speed; }
@@ -52,12 +55,11 @@ public:
     void set_deceleration_rate(float rate) { deceleration_rate_ = rate; }
     void set_random(int rand) { random_delay_ = rand; }
     
-    // Методы для инициализации пинов
     void set_ce_pin(uint8_t pin) { ce_pin_ = pin; }
     void set_cs_pin(uint8_t pin) { cs_pin_ = pin; }
 
 private:
-    static const char *const TAG;  // Только объявление, без определения
+    static const char *const TAG;
     
     uint8_t ce_pin_ = 2;
     uint8_t cs_pin_ = 0;
@@ -65,7 +67,6 @@ private:
     uint32_t last_move_ = 0;
     float angle_ = 0.0f;
     
-    // Параметры конфигурации
     float base_speed_ = 15.0f;
     float jitter_amount_ = 2.5f;
     float movement_speed_ = 0.7f;
