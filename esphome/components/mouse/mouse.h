@@ -3,7 +3,6 @@
 #include "esphome/core/component.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/log.h"
-#include "esphome/core/random.h"
 #include <RF24.h>
 #include <AES.h>
 #include <vector>
@@ -15,7 +14,7 @@ namespace mouse {
 
 class LogitechUnifying {
 public:
-    static const char *const TAG;  // Добавлено объявление TAG
+    static const char *const TAG;
     
     LogitechUnifying(uint8_t ce_pin, uint8_t cs_pin);
     bool begin();
