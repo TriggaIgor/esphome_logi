@@ -15,7 +15,7 @@ ludevice::ludevice() : ludevice(DEFAULT_CE_PIN, DEFAULT_CS_PIN)
 {
 }
 
-ludevice::ludevice(uint8_t _cepin, uint8_t _cspin) : radio(_cepin, _cspin)
+ludevice::ludevice(uint8_t _cepin, uint8_t _cspin) : radio(_cepin, _cspin), device_type(DEVICE_TYPE_MOUSE)
 {
 }
 
