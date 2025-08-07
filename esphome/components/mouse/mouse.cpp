@@ -297,21 +297,21 @@ void LogitechUnifying::update_little_known_secret_counter(uint8_t *counter) {
 
 void LogitechUnifying::logitacker_unifying_crypto_calculate_frame_key(uint8_t *frame_key, uint8_t *counter_bytes, bool silent) {
     if (!silent) {
-        ESP_LOGD(TAG, "1. last plain l_k_s: %s", hex_str(little_known_secret, 16).c_str());
+        ESP_LOGD(TAG, "1. last plain l_k_s: %s", format_hex_pretty(little_known_secret, 16).c_str());
     }
     
     update_little_known_secret_counter(counter_bytes);
     
     if (!silent) {
-        ESP_LOGD(TAG, "2. plain l_k_s+counter: %s", hex_str(little_known_secret, 16).c_str());
-        ESP_LOGD(TAG, "3. device_key: %s", hex_str(device_key, 16).c_str());
+        ESP_LOGD(TAG, "2. plain l_k_s+counter: %s", format_hex_pretty(little_known_secret, 16).c_str());
+        ESP_LOGD(TAG, "3. device_key: %s", format_hex_pretty(device_key, 16).c_str());
     }
     
     memcpy(frame_key, little_known_secret, 16);
     AES_ECB_encrypt(&aes_ctx_, frame_key);
     
     if (!silent) {
-        ESP_LOGD(TAG, "4. frame_key: %s", hex_str(frame_key, 16).c_str());
+        ESP_LOGD(TAG, "4. frame_key: %s", format_hex_pretty(frame_key, 16).c_str());
     }
 }
 
@@ -344,16 +344,26 @@ void LogitechUnifying::logitacker_unifying_crypto_encrypt_keyboard_frame(uint8_t
 }
 
 void LogitechUnifying::move(int16_t x, int16_t y) {
-    // Для простоты используем обычные пакеты движения
-    // В реальной реализации здесь должно быть шифрование
+    // Ограничение значений
+    if (x > 2047) x = 2047;
+    else if (x < -2048) x = -2048;
+    if (y > 2047) y = 2047;
+    else if (y < -2048) y = -2048;
+    
+    uint8_t x_sign = (x < 0) ? 0x40 : 0;
+    uint8_t y_sign = (y < 0) ? 0x40 : 0;
+    
+    uint8_t x_high = static_cast<uint8_t>((x >> 8) & 0x0F) | x_sign;
+    uint8_t y_high = static_cast<uint8_t>((y >> 8) & 0x0F) | y_sign;
+    
     uint8_t packet[10] = {
         rf_address[0], 
         0xC2, 
         0x00,
         static_cast<uint8_t>(x & 0xFF), 
-        static_cast<uint8_t>((x >> 8) & 0x0F) | ((x < 0) ? 0x40 : 0),
+        x_high,
         static_cast<uint8_t>(y & 0xFF), 
-        static_cast<uint8_t>((y >> 8) & 0x0F) | ((y < 0) ? 0x40 : 0),
+        y_high,
         0x00,
         0x00
     };
