@@ -338,69 +338,62 @@ void ludevice::loop(void)
         processed++;
     }
 
-    stay_alive_keyboard();
+    stay_alive();
 }
 
-void ludevice::stay_alive_keyboard(void)
-{
+void ludevice::stay_alive(void) {
     static uint32_t last_check = 0;
-    static uint16_t send_interval = 0;
     const uint32_t now = millis();
+    const bool is_mouse = (device_type == DEVICE_TYPE_MOUSE); // Добавляем тип устройства
 
-    // Проверяем условия обновления не чаще 1 раза в секунду
+    // Обновление интервалов раз в секунду
     if (now - last_check > 1000) {
         last_check = now;
-        
-        const unsigned long idle_time = idle_timer;
         uint16_t new_keep_alive = keep_alive;
 
-        if (idle_time > 60000) {
+        // Общая логика для всех устройств
+        if (idle_timer > 60000) {
+            new_keep_alive = 1200; // Режим глубокого сна
+        }
+        // Специфичная логика для мыши
+        else if (is_mouse && idle_timer > 30000) {
             new_keep_alive = 1200;
-        } else if (idle_time > 30000) {
-            new_keep_alive = 278;
+        } 
+        // Специфичная логика для клавиатуры
+        else if (!is_mouse && idle_timer > 30000) {
+            new_keep_alive = 278; // Промежуточный режим
+        }
+        // Активный режим
+        else if (idle_timer <= 30000) {
+            new_keep_alive = is_mouse ? 110 : 100;
         }
 
         if (new_keep_alive != keep_alive) {
             update_keep_alive(new_keep_alive, 3, true);
         }
-
-        // Вычисляем интервал отправки
-        send_interval = (keep_alive == 278) ? 250 : 
-                       (keep_alive == 1200) ? 1100 : keep_alive;
-    }
-
-    // Отправка keep-alive
-    if (send_alive_timer > send_interval)
-    {
-        radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), "keep-alive", 1, true);
-        send_alive_timer = 0;
-    }
-}
-
-// ludevice.cpp (строка ~505)
-void ludevice::stay_alive_mouse(void)
-{
-    uint8_t retry = 5;
-    bool silent = false;
-    char buffer[30];
-
-    // Упрощенная логика обновления интервалов
-    if (idle_timer > 5000 && keep_alive != 1200) {
-        update_keep_alive(1200, retry, silent);
-    } else if (idle_timer > 80 && keep_alive != 110) {
-        update_keep_alive(110, retry, silent);
     }
 
     // Вычисление интервала отправки
     uint16_t send_interval = keep_alive;
-    if (keep_alive == 110) send_interval = 100;
-    else if (keep_alive == 1200) send_interval = 1100;
-
-    if (send_alive_timer > send_interval)
-    {
-        sprintf(buffer, "%dms keep alive", keep_alive);
-        radiowrite_ex(keep_alive_packet, sizeof(keep_alive_packet), buffer, retry, silent);
-        send_alive_timer = 0;
+    if (is_mouse && keep_alive == 110) send_interval = 110;
+    
+    // Отправка keep-alive
+    if (send_alive_timer > send_interval) {
+        const char* device_name = is_mouse ? "mouse" : "keyboard";
+        char log_msg[50];
+        snprintf(log_msg, sizeof(log_msg), "%s keep-alive (%dms)", device_name, keep_alive);
+        
+        bool success = radiowrite_ex(
+            keep_alive_packet, 
+            sizeof(keep_alive_packet),
+            log_msg,
+            3,
+            true
+        );
+        
+        // Сброс таймера только при успешной отправке
+        if (success) send_alive_timer = 0;
+        else send_alive_timer -= 100; // Ретри быстрее
     }
 }
 
