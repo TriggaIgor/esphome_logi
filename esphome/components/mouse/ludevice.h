@@ -312,9 +312,16 @@ private:
         // 0     1     2     3     4     5     6   (7)   (8)   (9)   (A)     B     C     D     E     F
         0x04, 0x14, 0x1d, 0x1f, 0x27, 0x28, 0x0d, 0xde, 0xad, 0xbe, 0xef, 0x0a, 0x0d, 0x13, 0x26, 0x0e};
 
+    bool sniffingMode = false;
+    std::vector<uint64_t> detectedDevices; // Для хранения обнаруженных MAC-адресов
+
 public:
     ludevice(uint8_t _cepin, uint8_t _cspin);
     ludevice();
+    bool startSniffing();
+    void stopSniffing();
+    bool checkForOtherDevices(uint8_t* foundAddress);
+    void saveDetectedDevice(const uint8_t* address);
 
     bool begin();
 
