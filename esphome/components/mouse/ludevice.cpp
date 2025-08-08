@@ -36,22 +36,35 @@ void ludevice::stopSniffing() {
 
 bool ludevice::checkForOtherDevices(uint8_t* foundAddress) {
     if (!sniffingMode || !radio.available()) return false;
-    
+
     uint8_t payload[PAYLOAD_SIZE];
     uint8_t len = radio.getDynamicPayloadSize();
-    if (len < 1) return false;
-    
+    if (len < 5) { // Минимальный размер значимого пакета
+        radio.read(payload, len);
+        return false;
+    }
+
+    // Читаем пакет
     radio.read(payload, len);
-    
-    // Проверяем, что это пакет от мыши Logitech
-    if (payload[1] == 0xC2 || payload[1] == 0xC3) { // Типичные типы пакетов мыши
-        // Получаем адрес отправителя
-        uint8_t address[5];
-        radio.read_register(RX_ADDR_P1, address, 5);
-        
-        // Исключаем наш собственный адрес
-        if (memcmp(address, rf_address, 5) != 0) {
-            memcpy(foundAddress, address, 5);
+
+    // Получаем RSSI (сигнал) последнего пакета
+    lastRssi = radio.testRPD() ? 64 : 0; // Упрощенное получение уровня сигнала
+
+    // Проверяем тип пакета (мышь Logitech)
+    if (payload[1] == 0xC2 || payload[1] == 0xC3) {
+        // В пакетах Unifying MAC-адрес часто находится в определенных позициях
+        // Это эвристический подход, так как напрямую получить адрес отправителя нельзя
+        if (payload[0] != rf_address[0] && // Первый байт адреса
+            payload[3] != rf_address[3] && // Четвертый байт адреса
+            payload[4] != rf_address[4]) {  // Пятый байт адреса
+            
+            // Формируем предполагаемый адрес (это приблизительно)
+            foundAddress[0] = payload[0];
+            foundAddress[1] = payload[3];
+            foundAddress[2] = payload[4];
+            foundAddress[3] = payload[0] ^ 0x55; // Простая XOR маска
+            foundAddress[4] = payload[3] ^ 0xAA; // Простая XOR маска
+            
             return true;
         }
     }
