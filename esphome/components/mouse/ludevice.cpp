@@ -26,7 +26,8 @@ bool ludevice::startSniffing() {
     // Настраиваем радио для прослушивания
     radio.setAutoAck(false);
     radio.setAddressWidth(5);
-    radio.openReadingPipe(1, 0x0000000000LL); // Широковещательный адрес
+    uint64_t broadcastAddress = 0x00000000000LL;
+    radio.openReadingPipe(1, broadcastAddress); // Широковещательный адрес
     radio.startListening();
     sniffingMode = true;
     return true;
