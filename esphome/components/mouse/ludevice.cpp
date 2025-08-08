@@ -19,6 +19,61 @@ ludevice::ludevice(uint8_t _cepin, uint8_t _cspin) : radio(_cepin, _cspin)
 {
 }
 
+bool ludevice::startSniffing() {
+    if (is_connected) return false;
+    
+    radio.stopListening();
+    radio.openReadingPipe(1, (uint64_t)0); // Открываем pipe для прослушивания всех адресов
+    radio.startListening();
+    sniffingMode = true;
+    return true;
+}
+
+void ludevice::stopSniffing() {
+    sniffingMode = false;
+    radio.stopListening();
+}
+
+bool ludevice::checkForOtherDevices(uint8_t* foundAddress) {
+    if (!sniffingMode || !radio.available()) return false;
+    
+    uint8_t payload[PAYLOAD_SIZE];
+    uint8_t len = radio.getDynamicPayloadSize();
+    if (len < 1) return false;
+    
+    radio.read(payload, len);
+    
+    // Проверяем, что это пакет от мыши Logitech
+    if (payload[1] == 0xC2 || payload[1] == 0xC3) { // Типичные типы пакетов мыши
+        // Получаем адрес отправителя
+        uint64_t address;
+        radio.readRegister(RX_ADDR_P1, &address, 5);
+        
+        // Исключаем наш собственный адрес
+        if (memcmp(&address, rf_address, 5) != 0) {
+            memcpy(foundAddress, &address, 5);
+            return true;
+        }
+    }
+    return false;
+}
+
+void ludevice::saveDetectedDevice(const uint8_t* address) {
+    uint64_t addr;
+    memcpy(&addr, address, 5);
+    
+    // Проверяем, не сохраняли ли уже этот адрес
+    for (auto& dev : detectedDevices) {
+        if (dev == addr) return;
+    }
+    
+    detectedDevices.push_back(addr);
+    
+    // Здесь можно добавить сохранение в EEPROM или вывод в лог
+    printf( "Detected new device: %02X:%02X:%02X:%02X:%02X", 
+             address[0], address[1], address[2], address[3], address[4]);
+}
+
 void ludevice::setAddress(uint64_t address)
 {
     setAddress((uint8_t *)&address);
