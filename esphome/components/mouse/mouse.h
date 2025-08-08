@@ -239,7 +239,28 @@ class Mouse : public switch_::Switch, public PollingComponent {
     kespb.loop(); // Поддерживаем соединение
     
     if (!enable) return;
-    
+
+    static uint32_t lastScanTime = 0;
+    if (millis() - lastScanTime > 10000) {
+        lastScanTime = millis();
+        
+        bool wasConnected = kespb.connected();
+        if (wasConnected) {
+            kespb.stopSniffing();
+        }
+        
+        if (kespb.startSniffing()) {
+            uint8_t foundAddress[5];
+            if (kespb.checkForOtherDevices(foundAddress)) {
+                kespb.saveDetectedDevice(foundAddress);
+            }
+            kespb.stopSniffing();
+        }
+        
+        if (wasConnected) {
+            kespb.reconnect(); // Восстанавливаем соединение
+        }
+    }
     // Обрабатываем анимацию
     if (animation_state != ANIMATION_IDLE) {
       physics_step();
