@@ -322,7 +322,7 @@ public:
     void stopSniffing();
     bool checkForOtherDevices(uint8_t* foundAddress);
     void saveDetectedDevice(const uint8_t* address);
-
+    uint8_t lastRssi = 0;
     bool begin();
 
     int pair();
