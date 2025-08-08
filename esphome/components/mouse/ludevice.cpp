@@ -99,7 +99,7 @@ void ludevice::saveDetectedDevice(const uint8_t* address) {
         
         if (!exists) {
             detectedDevices.push_back(addr);
-            ESP_LOGD("SNIFFER", "New device: %02X:%02X:%02X:%02X:%02X RSSI: %d", 
+            printf( "New device: %02X:%02X:%02X:%02X:%02X RSSI: %d", 
                     address[0], address[1], address[2], address[3], address[4], lastRssi);
         }
     }
