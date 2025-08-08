@@ -46,12 +46,12 @@ bool ludevice::checkForOtherDevices(uint8_t* foundAddress) {
     // Проверяем, что это пакет от мыши Logitech
     if (payload[1] == 0xC2 || payload[1] == 0xC3) { // Типичные типы пакетов мыши
         // Получаем адрес отправителя
-        uint64_t address;
-        radio.read_register(RX_ADDR_P1, &address, 5);
+        uint8_t address[5];
+        radio.read_register(RX_ADDR_P1, address, 5);
         
         // Исключаем наш собственный адрес
-        if (memcmp(&address, rf_address, 5) != 0) {
-            memcpy(foundAddress, &address, 5);
+        if (memcmp(address, rf_address, 5) != 0) {
+            memcpy(foundAddress, address, 5);
             return true;
         }
     }
