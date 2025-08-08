@@ -23,7 +23,10 @@ bool ludevice::startSniffing() {
     if (is_connected) return false;
     
     radio.stopListening();
-    radio.openReadingPipe(1, (uint64_t)0); // Открываем pipe для прослушивания всех адресов
+    // Настраиваем радио для прослушивания
+    radio.setAutoAck(false);
+    radio.setAddressWidth(5);
+    radio.openReadingPipe(1, 0x0000000000LL); // Широковещательный адрес
     radio.startListening();
     sniffingMode = true;
     return true;
@@ -72,19 +75,34 @@ bool ludevice::checkForOtherDevices(uint8_t* foundAddress) {
 }
 
 void ludevice::saveDetectedDevice(const uint8_t* address) {
-    uint64_t addr;
-    memcpy(&addr, address, 5);
-    
-    // Проверяем, не сохраняли ли уже этот адрес
-    for (auto& dev : detectedDevices) {
-        if (dev == addr) return;
+    // Проверяем валидность адреса
+    bool isValid = true;
+    for (int i = 0; i < 5; i++) {
+        if (address[i] == 0x00 || address[i] == 0xFF) {
+            isValid = false;
+            break;
+        }
     }
     
-    detectedDevices.push_back(addr);
-    
-    // Здесь можно добавить сохранение в EEPROM или вывод в лог
-    printf( "Detected new device: %02X:%02X:%02X:%02X:%02X", 
-             address[0], address[1], address[2], address[3], address[4]);
+    if (isValid) {
+        uint64_t addr = 0;
+        memcpy(&addr, address, 5);
+        
+        // Проверяем на дубликаты
+        bool exists = false;
+        for (auto& dev : detectedDevices) {
+            if (dev == addr) {
+                exists = true;
+                break;
+            }
+        }
+        
+        if (!exists) {
+            detectedDevices.push_back(addr);
+            ESP_LOGD("SNIFFER", "New device: %02X:%02X:%02X:%02X:%02X RSSI: %d", 
+                    address[0], address[1], address[2], address[3], address[4], lastRssi);
+        }
+    }
 }
 
 void ludevice::setAddress(uint64_t address)
