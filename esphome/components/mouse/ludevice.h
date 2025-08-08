@@ -362,7 +362,6 @@ public:
     void logitacker_unifying_crypto_encrypt_keyboard_frame(uint8_t *encrypted, uint8_t *plain, uint32_t counter);
     void logitacker_unifying_crypto_calculate_frame_key(uint8_t *frame_key, uint8_t *counter_bytes, bool silent);
     void update_little_known_secret_counter(uint8_t *counter);
-    bool connected();
 };
 
 #endif
