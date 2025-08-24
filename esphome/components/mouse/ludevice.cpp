@@ -989,13 +989,17 @@ void ludevice::logitacker_unifying_crypto_encrypt_keyboard_frame(uint8_t *rf_fra
 }
 
 
-/* --- Promiscuous scan implementation --- */
+
+
+/* --- Promiscuous scan implementation (fixed) --- */
 void ludevice::promisc_begin(uint8_t ch)
 {
     radio.stopListening();
     radio.setChannel(ch);
 
-    // CONFIG: PWR_UP | PRIM_RX ; CRC disabled
+    // Save old config
+    // (Not all registers are tracked, but we restore in promisc_end)
+    // CONFIG: PWR_UP | PRIM_RX ; disable CRC
     digitalWrite(DEFAULT_CS_PIN, LOW);
     SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x00)); // CONFIG
     SPI.transfer((1<<1) | (1<<0));
@@ -1039,6 +1043,23 @@ void ludevice::promisc_end()
     SPI.transfer(0x03);
     digitalWrite(DEFAULT_CS_PIN, HIGH);
 
+    // Re-enable auto-ack and all pipes
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x01)); // EN_AA
+    SPI.transfer(0x3F);
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x02)); // EN_RXADDR
+    SPI.transfer(0x03);
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+
+    // Restore CONFIG with CRC enabled, PRX
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x00));
+    SPI.transfer((1<<1) | (1<<0) | (1<<3)); // CRC enabled, PWR_UP, PRIM_RX
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+
     setAddress(rf_address);
     radio.setChannel(current_channel);
     radio.startListening();
@@ -1048,16 +1069,16 @@ void ludevice::promisc_scan()
 {
     if (!auto_pause) return;
 
-    static uint32_t last_scan_us = 0;
-    uint32_t now_us = micros();
-    if (now_us - last_scan_us < 2000) return; // every ~2ms
-    last_scan_us = now_us;
+    static uint32_t last_scan_ms = 0;
+    uint32_t now_ms = millis();
+    if (now_ms - last_scan_ms < 100) return; // every ~100ms
+    last_scan_ms = now_ms;
 
     scan_idx = (scan_idx + 1) % CHANNEL_TX_COUNT;
     uint8_t ch = channel_tx[scan_idx];
 
     promisc_begin(ch);
-    delayMicroseconds(180);
+    delayMicroseconds(200);
 
     while (radio.available()) {
         uint8_t buf[22];
