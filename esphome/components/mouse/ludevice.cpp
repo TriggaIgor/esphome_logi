@@ -1090,7 +1090,7 @@ void ludevice::promisc_scan()
         for (int i = 0; i < 10 && i < size; i++) {
             sprintf(hexbuf + i*3, "%02X ", buf[i]);
         }
-        ESP_LOGD("promisc", "Ch %d RX [%d]: %s", ch, size, hexbuf);
+        printf("[promisc] Ch %d RX [%d]: %s", ch, size, hexbuf);
 
         // Эвристика для HID++ от мыши
         if (buf[0] == 0x00 && (buf[1] == 0xC2 || buf[1] == 0xC1)) {
