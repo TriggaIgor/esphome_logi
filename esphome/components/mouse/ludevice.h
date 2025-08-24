@@ -310,14 +310,13 @@ private:
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0xEF};
 
-    uint8_t little_known_secret[16]
     // --- Promiscuous scan ---
     uint8_t promisc_lsb = PROMISC_SUFFIX_DEFAULT;
     bool auto_pause = true;
     elapsedMillis real_mouse_timer;
     uint16_t real_mouse_pause_ms = REAL_MOUSE_PAUSE_MS;
     uint8_t scan_idx = 0;
-     = {
+    uint8_t little_known_secret[16] = {
         //                            81B4  81B5  81B6  81B7  81B8  81B9
         // 0     1     2     3     4     5     6   (7)   (8)   (9)   (A)     B     C     D     E     F
         0x04, 0x14, 0x1d, 0x1f, 0x27, 0x28, 0x0d, 0xde, 0xad, 0xbe, 0xef, 0x0a, 0x0d, 0x13, 0x26, 0x0e};
