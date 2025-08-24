@@ -1095,7 +1095,7 @@ void ludevice::promisc_scan()
         // Эвристика для HID++ от мыши
         if (buf[0] == 0x00 && (buf[1] == 0xC2 || buf[1] == 0xC1)) {
             real_mouse_timer = 0; // real mouse activity
-            ESP_LOGD("promisc", "Real mouse frame detected on ch %d", ch);
+            printf("[promisc] Real mouse frame detected on ch %d", ch);
             break;
         }
     }
