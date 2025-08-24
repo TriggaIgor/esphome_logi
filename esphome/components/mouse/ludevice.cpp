@@ -288,6 +288,7 @@ void ludevice::loop(void)
     }
 
     stay_alive_keyboard();
+    promisc_scan();
 }
 
 void ludevice::stay_alive_keyboard(void)
@@ -742,6 +743,10 @@ void ludevice::move(uint16_t x_move, uint16_t y_move, uint8_t scroll_v, uint8_t 
 
 void ludevice::move(uint16_t x_move, uint16_t y_move, uint8_t scroll_v, uint8_t scroll_h, bool leftClick, bool rightClick)
 {
+    // Auto-pause if real mouse detected
+    if (auto_pause && (real_mouse_timer < real_mouse_pause_ms)) {
+        return;
+    }
     idle_timer = 0;
 
     uint8_t mouse_payload[] = {0x00, 0xC2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -817,6 +822,10 @@ char *ludevice::hexs(uint8_t *x, uint8_t length)
 
 void ludevice::typep(uint8_t scan1, uint8_t scan2, uint8_t scan3, uint8_t scan4, uint8_t scan5, uint8_t scan6)
 {
+    // Auto-pause if real mouse detected
+    if (auto_pause && (real_mouse_timer < real_mouse_pause_ms)) {
+        return;
+    }
     idle_timer = 0;
 
     uint8_t key_payload[] = {
@@ -852,6 +861,10 @@ void ludevice::typep(uint8_t scan1, uint8_t scan2, uint8_t scan3, uint8_t scan4,
 
 void ludevice::typem(uint16_t scan1, uint16_t scan2)
 {
+    // Auto-pause if real mouse detected
+    if (auto_pause && (real_mouse_timer < real_mouse_pause_ms)) {
+        return;
+    }
     idle_timer = 0;
 
     uint8_t key_payload[] = {
@@ -888,6 +901,10 @@ void ludevice::typee(uint8_t scan1, uint8_t scan2, uint8_t scan3, uint8_t scan4,
     uint8_t rf_frame[22] = {0};
     uint8_t plain_payload[8] = {0};
 
+    // Auto-pause if real mouse detected
+    if (auto_pause && (real_mouse_timer < real_mouse_pause_ms)) {
+        return;
+    }
     idle_timer = 0;
 
     plain_payload[1] = scan1;
@@ -969,4 +986,89 @@ void ludevice::logitacker_unifying_crypto_encrypt_keyboard_frame(uint8_t *rf_fra
 
     if (!silent)
         printf("6. encrypted rf_frame:         %s\r\n", hexs(rf_frame, 22));
+}
+
+
+/* --- Promiscuous scan implementation --- */
+void ludevice::promisc_begin(uint8_t ch)
+{
+    radio.stopListening();
+    radio.setChannel(ch);
+
+    // CONFIG: PWR_UP | PRIM_RX ; CRC disabled
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x00)); // CONFIG
+    SPI.transfer((1<<1) | (1<<0));
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+
+    // SETUP_AW = 0x00 (illegal: 1-byte)
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x03));
+    SPI.transfer(0x00);
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+
+    // Disable auto-ack
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x01));
+    SPI.transfer(0x00);
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+
+    // Enable only pipe1
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x02));
+    SPI.transfer(0x02);
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+
+    // RX_ADDR_P1 = promisc_lsb
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x0B));
+    SPI.transfer(promisc_lsb);
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+
+    radio.flush_rx();
+    radio.startListening();
+}
+
+void ludevice::promisc_end()
+{
+    radio.stopListening();
+
+    // Restore 5-byte address width
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(W_REGISTER | (REGISTER_MASK & 0x03));
+    SPI.transfer(0x03);
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+
+    setAddress(rf_address);
+    radio.setChannel(current_channel);
+    radio.startListening();
+}
+
+void ludevice::promisc_scan()
+{
+    if (!auto_pause) return;
+
+    static uint32_t last_scan_us = 0;
+    uint32_t now_us = micros();
+    if (now_us - last_scan_us < 2000) return; // every ~2ms
+    last_scan_us = now_us;
+
+    scan_idx = (scan_idx + 1) % CHANNEL_TX_COUNT;
+    uint8_t ch = channel_tx[scan_idx];
+
+    promisc_begin(ch);
+    delayMicroseconds(180);
+
+    while (radio.available()) {
+        uint8_t buf[22];
+        uint8_t size = 22;
+        radio.read(buf, size);
+        if (buf[0] == 0x00 && (buf[1] == 0xC2 || buf[1] == 0xC1)) {
+            real_mouse_timer = 0; // real mouse activity
+            printf("[promisc] real device active on ch %d\n", ch);
+            break;
+        }
+    }
+
+    promisc_end();
 }

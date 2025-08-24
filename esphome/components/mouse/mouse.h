@@ -239,6 +239,11 @@ class Mouse : public switch_::Switch, public PollingComponent {
     kespb.loop(); // Поддерживаем соединение
     
     if (!enable) return;
+
+    if (kespb.real_mouse_active()) {
+      ESP_LOGD(TAG, "Real mouse active, pause emulation");
+      return;
+    }
     
     // Обрабатываем анимацию
     if (animation_state != ANIMATION_IDLE) {
