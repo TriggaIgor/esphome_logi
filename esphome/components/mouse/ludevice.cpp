@@ -1065,12 +1065,6 @@ void ludevice::promisc_end()
     radio.startListening();
 }
 
-    }
-
-    promisc_end();
-}
-
-
 void ludevice::promisc_scan()
 {
     if (!auto_pause) return;
