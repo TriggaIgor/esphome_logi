@@ -1065,6 +1065,12 @@ void ludevice::promisc_end()
     radio.startListening();
 }
 
+    }
+
+    promisc_end();
+}
+
+
 void ludevice::promisc_scan()
 {
     if (!auto_pause) return;
@@ -1081,12 +1087,21 @@ void ludevice::promisc_scan()
     delayMicroseconds(200);
 
     while (radio.available()) {
-        uint8_t buf[22];
+        uint8_t buf[22] = {0};
         uint8_t size = 22;
         radio.read(buf, size);
+
+        // Логируем первые 10 байт
+        char hexbuf[64] = {0};
+        for (int i = 0; i < 10 && i < size; i++) {
+            sprintf(hexbuf + i*3, "%02X ", buf[i]);
+        }
+        ESP_LOGD("promisc", "Ch %d RX [%d]: %s", ch, size, hexbuf);
+
+        // Эвристика для HID++ от мыши
         if (buf[0] == 0x00 && (buf[1] == 0xC2 || buf[1] == 0xC1)) {
             real_mouse_timer = 0; // real mouse activity
-            printf("[promisc] real device active on ch %d\n", ch);
+            ESP_LOGD("promisc", "Real mouse frame detected on ch %d", ch);
             break;
         }
     }
