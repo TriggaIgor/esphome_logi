@@ -69,7 +69,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
     max_random = std::clamp(rand, 1000, 15000);
   }
 
-  void Mouse::handle_raw_packet(const uint8_t* data, uint8_t len, uint8_t channel, int8_t rssi) {
+  void handle_raw_packet(const uint8_t* data, uint8_t len, uint8_t channel, int8_t rssi) {
       // Просто логируем raw данные
       ESP_LOGI(TAG, "RAW: CH:%d LEN:%d RSSI:%ddB DATA:%s", 
               channel, len, rssi, kespb.hexs((uint8_t*)data, len));
