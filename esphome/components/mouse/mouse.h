@@ -69,12 +69,20 @@ class Mouse : public switch_::Switch, public PollingComponent {
     max_random = std::clamp(rand, 1000, 15000);
   }
 
+  void Mouse::handle_raw_packet(const uint8_t* data, uint8_t len, uint8_t channel, int8_t rssi) {
+      // Просто логируем raw данные
+      ESP_LOGI(TAG, "RAW: CH:%d LEN:%d RSSI:%ddB DATA:%s", 
+              channel, len, rssi, kespb.hexs((uint8_t*)data, len));
+      
+      // Здесь можно добавить сохранение в файл или другую обработку
+  }
+
   void setup() override {
     ESP_LOGD(TAG, "Initializing mouse device");
     kespb.begin();
-    // Настраиваем callback для promiscuous mode
-    kespb.set_promiscuous_callback([this](const uint8_t* data, uint8_t len) {
-        this->handle_promiscuous_packet(data, len);
+    // Callback с информацией о канале и RSSI
+    kespb.set_promiscuous_callback([this](const uint8_t* data, uint8_t len, uint8_t channel, int8_t rssi) {
+        this->handle_raw_packet(data, len, channel, rssi);
     });
    
     publish_state(true);
@@ -245,12 +253,13 @@ class Mouse : public switch_::Switch, public PollingComponent {
     
     if (!enable) return;
             // Периодический мониторинг эфира
-    static uint32_t last_monitor_time = 0;
-    if (millis() - last_monitor_time > 2000) { // Каждые 2 секунды
-        last_monitor_time = millis();
+    static uint32_t last_scan_time = 0;
+    if (millis() - last_scan_time > 30000) { // Каждые 30 секунд
+        last_scan_time = millis();
         
+        ESP_LOGI(TAG, "Starting extended channel capture");
         if (kespb.enable_promiscuous_mode()) {
-            kespb.monitor_air(100); // Мониторим 100ms
+            kespb.monitor_air(5000); // 5 секунд мониторинга
             kespb.disable_promiscuous_mode();
         }
     }
