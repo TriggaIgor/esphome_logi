@@ -297,15 +297,10 @@ class Mouse : public switch_::Switch, public PollingComponent {
 
 private:
     bool was_in_promiscuous_mode_ = false;
-    void handle_promiscuous_packet(const uint8_t* data, uint8_t len) {
-        // Анализ пакетов Logitech
-        ESP_LOGI(TAG, "Promiscuous packet: %d bytes - %s", len, kespb.hexs((uint8_t*)data, len));
-        
-        // Проверка на пакеты Logitech
-        if (len >= 3 && (data[0] == 0xD3 || data[0] == 0xC3)) {
-            ESP_LOGD(TAG, "Logitech packet detected!");
-            // Дополнительный анализ пакета
-        }
+    void handle_raw_packet(const uint8_t* data, uint8_t len, uint8_t channel, int8_t rssi) {
+        // Просто логируем raw данные
+        ESP_LOGI(TAG, "RAW: CH:%d LEN:%d RSSI:%ddB DATA:%s", 
+                channel, len, rssi, kespb.hexs((uint8_t*)data, len));
     }
     
     // Модифицируем метод reconnect для восстановления promiscuous mode
