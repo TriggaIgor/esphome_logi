@@ -183,11 +183,8 @@ void ludevice::monitor_air(uint32_t duration_ms) {
     
     uint32_t start_time = millis();
     uint8_t packets_detected = 0;
-    
-    // Сохраняем текущий канал для восстановления
     uint8_t original_channel = current_channel;
     
-    // Logitech каналы (2.4 GHz)
     uint8_t logitech_channels[] = {2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 
                                   38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 
                                   71, 74, 77, 80};
@@ -196,7 +193,7 @@ void ludevice::monitor_air(uint32_t duration_ms) {
     ESP_LOGI("ludevice", "Starting raw packet capture on %d Logitech channels", num_channels);
     
     uint32_t time_per_channel = duration_ms / num_channels;
-    if (time_per_channel < 10) time_per_channel = 10; // Минимум 10ms на канал
+    if (time_per_channel < 10) time_per_channel = 10;
     
     for (uint8_t i = 0; i < num_channels; i++) {
         uint8_t channel = logitech_channels[i];
@@ -218,12 +215,12 @@ void ludevice::monitor_air(uint32_t duration_ms) {
                     packets_detected++;
                     channel_packets++;
                     
-                    // RAW вывод пакета без анализа
-                    ESP_LOGI("ludevice", "CH:%d LEN:%d RSSI:%d DATA:%s", 
-                            channel, len, radio.getRSSI(), hexs(payload, len));
+                    // Без RSSI
+                    ESP_LOGI("ludevice", "CH:%d LEN:%d DATA:%s", 
+                            channel, len, hexs(payload, len));
                     
                     if (promiscuous_callback_) {
-                        promiscuous_callback_(payload, len);
+                        promiscuous_callback_(payload, len, channel, 0); // RSSI = 0
                     }
                 }
             }
@@ -235,15 +232,11 @@ void ludevice::monitor_air(uint32_t duration_ms) {
         }
     }
     
-    // Восстанавливаем оригинальный канал
     radio.setChannel(original_channel);
     current_channel = original_channel;
-    
-    ESP_LOGI("ludevice", "Capture complete: %d total packets on %d channels", 
-            packets_detected, num_channels);
+    ESP_LOGI("ludevice", "Capture complete: %d total packets", packets_detected);
 }
 
-// Быстрое сканирование всех каналов
 void ludevice::scan_logitech_channels(uint32_t duration_per_channel) {
     if (!promiscuous_mode_) {
         enable_promiscuous_mode();
@@ -274,9 +267,8 @@ void ludevice::scan_logitech_channels(uint32_t duration_per_channel) {
                     radio.read(payload, len);
                     packets_detected++;
                     
-                    // Только базовая информация
-                    ESP_LOGI("ludevice", "ACTIVE: CH:%d LEN:%d RSSI:%d", 
-                            channel, len, radio.getRSSI());
+                    // Без RSSI
+                    ESP_LOGI("ludevice", "ACTIVE: CH:%d LEN:%d", channel, len);
                 }
             }
             delay(1);
@@ -287,7 +279,6 @@ void ludevice::scan_logitech_channels(uint32_t duration_per_channel) {
         }
     }
     
-    // Восстанавливаем оригинальный канал
     radio.setChannel(original_channel);
     current_channel = original_channel;
 }
