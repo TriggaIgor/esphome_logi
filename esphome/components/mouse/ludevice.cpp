@@ -6,7 +6,7 @@
  version 2 as published by the Free Software Foundation.
 */
 #include "ludevice.h"
-#include <esp_log.h>
+#include "esphome/core/log.h"
 
 #ifdef EEPROM_SUPPORT
 #include <EEPROM.h>
