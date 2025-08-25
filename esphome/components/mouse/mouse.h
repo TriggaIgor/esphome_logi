@@ -251,7 +251,7 @@ class Mouse : public switch_::Switch, public PollingComponent {
         
         ESP_LOGI(TAG, "Starting extended channel capture");
         if (kespb.enable_promiscuous_mode()) {
-            kespb.monitor_air(5000); // 5 секунд мониторинга
+            kespb.monitor_air(50000); // 5 секунд мониторинга
             kespb.disable_promiscuous_mode();
         }
     }
