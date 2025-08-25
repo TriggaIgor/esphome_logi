@@ -69,14 +69,6 @@ class Mouse : public switch_::Switch, public PollingComponent {
     max_random = std::clamp(rand, 1000, 15000);
   }
 
-  void handle_raw_packet(const uint8_t* data, uint8_t len, uint8_t channel, int8_t rssi) {
-      // Просто логируем raw данные
-      ESP_LOGI(TAG, "RAW: CH:%d LEN:%d RSSI:%ddB DATA:%s", 
-              channel, len, rssi, kespb.hexs((uint8_t*)data, len));
-      
-      // Здесь можно добавить сохранение в файл или другую обработку
-  }
-
   void setup() override {
     ESP_LOGD(TAG, "Initializing mouse device");
     kespb.begin();
