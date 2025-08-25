@@ -6,7 +6,7 @@
  version 2 as published by the Free Software Foundation.
 */
 #include "ludevice.h"
-
+#include "esphome/core/log.h"
 #ifdef EEPROM_SUPPORT
 #include <EEPROM.h>
 #endif
@@ -98,6 +98,120 @@ bool ludevice::begin()
     radio.stopListening();
 
     return true;
+}
+// Низкоуровневые методы доступа к радио
+bool ludevice::write_register(uint8_t reg, uint8_t value) {
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(W_REGISTER | (REGISTER_MASK & reg));
+    SPI.transfer(value);
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+    return true;
+}
+
+uint8_t ludevice::read_register(uint8_t reg) {
+    digitalWrite(DEFAULT_CS_PIN, LOW);
+    SPI.transfer(R_REGISTER | (REGISTER_MASK & reg));
+    uint8_t value = SPI.transfer(0xFF);
+    digitalWrite(DEFAULT_CS_PIN, HIGH);
+    return value;
+}
+
+// Сохранение текущего состояния радио
+void ludevice::save_radio_state() {
+    saved_registers_[0] = read_register(0x00); // CONFIG
+    saved_registers_[1] = read_register(0x01); // EN_AA
+    saved_registers_[2] = read_register(0x02); // EN_RXADDR
+    saved_registers_[3] = read_register(0x03); // SETUP_AW
+    saved_registers_[4] = read_register(0x04); // SETUP_RETR
+    saved_registers_[5] = read_register(0x06); // RF_SETUP
+}
+
+// Восстановление состояния радио
+void ludevice::restore_radio_state() {
+    write_register(0x00, saved_registers_[0]);
+    write_register(0x01, saved_registers_[1]);
+    write_register(0x02, saved_registers_[2]);
+    write_register(0x03, saved_registers_[3]);
+    write_register(0x04, saved_registers_[4]);
+    write_register(0x06, saved_registers_[5]);
+}
+
+// Включение promiscuous mode
+bool ludevice::enable_promiscuous_mode() {
+    if (promiscuous_mode_) return true;
+    
+    ESP_LOGD("ludevice", "Saving radio state for promiscuous mode");
+    save_radio_state();
+    
+    // Останавливаем текущий прием
+    radio.stopListening();
+    
+    // Настройка для promiscuous mode (Travis Goodspeed)
+    write_register(0x00, 0x0F);  // CONFIG: PWR_UP + PRIM_RX + CRC_EN
+    write_register(0x01, 0x00);  // EN_AA: No Auto Acknowledgement
+    write_register(0x02, 0x01);  // EN_RXADDR: Enable only pipe 0
+    write_register(0x03, 0x03);  // SETUP_AW: 5 bytes address width
+    write_register(0x04, 0x00);  // SETUP_RETR: No retransmit
+    
+    // Включаем прием
+    radio.startListening();
+    
+    promiscuous_mode_ = true;
+    ESP_LOGI("ludevice", "Promiscuous mode enabled");
+    return true;
+}
+
+// Выключение promiscuous mode
+bool ludevice::disable_promiscuous_mode() {
+    if (!promiscuous_mode_) return true;
+    
+    ESP_LOGD("ludevice", "Restoring radio state");
+    radio.stopListening();
+    restore_radio_state();
+    radio.startListening();
+    
+    promiscuous_mode_ = false;
+    ESP_LOGI("ludevice", "Promiscuous mode disabled");
+    return true;
+}
+
+// Мониторинг эфира
+void ludevice::monitor_air(uint32_t duration_ms) {
+    if (!promiscuous_mode_) {
+        ESP_LOGW("ludevice", "Not in promiscuous mode");
+        return;
+    }
+    
+    uint32_t start_time = millis();
+    uint8_t packets_detected = 0;
+    
+    while (millis() - start_time < duration_ms) {
+        if (radio.available()) {
+            uint8_t payload[32];
+            uint8_t len = radio.getPayloadSize();
+            
+            if (len > 0 && len <= sizeof(payload)) {
+                radio.read(payload, len);
+                packets_detected++;
+                
+                if (promiscuous_callback_) {
+                    promiscuous_callback_(payload, len);
+                }
+                
+                // Логирование пакетов
+                ESP_LOGD("ludevice", "Packet [%d bytes]: %s", 
+                        len, hexs(payload, len));
+            }
+        }
+        delay(1);
+    }
+    
+    ESP_LOGD("ludevice", "Monitoring complete: %d packets", packets_detected);
+}
+
+// Установка callback для обработки пакетов
+void ludevice::set_promiscuous_callback(std::function<void(const uint8_t*, uint8_t)> callback) {
+    promiscuous_callback_ = callback;
 }
 
 void ludevice::setChecksum(uint8_t *payload, uint8_t len)
