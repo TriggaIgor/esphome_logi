@@ -333,7 +333,9 @@ public:
     void scan_logitech_channels(uint32_t duration_per_channel = 50);
     
     // Убираем анализ пакетов, оставляем только raw capture
-    void set_promiscuous_callback(std::function<void(const uint8_t*, uint8_t, uint8_t, int8_t)> callback);
+    void set_promiscuous_callback(std::function<void(const uint8_t*, uint8_t, uint8_t, int8_t)> callback) {
+        promiscuous_callback_ = callback;
+    }
 
     bool begin();
 
