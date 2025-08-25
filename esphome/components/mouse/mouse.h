@@ -72,6 +72,11 @@ class Mouse : public switch_::Switch, public PollingComponent {
   void setup() override {
     ESP_LOGD(TAG, "Initializing mouse device");
     kespb.begin();
+    // Настраиваем callback для promiscuous mode
+    kespb.set_promiscuous_callback([this](const uint8_t* data, uint8_t len) {
+        this->handle_promiscuous_packet(data, len);
+    });
+   
     publish_state(true);
     
     for (int i = 0; i < 10; i++) {
@@ -239,7 +244,16 @@ class Mouse : public switch_::Switch, public PollingComponent {
     kespb.loop(); // Поддерживаем соединение
     
     if (!enable) return;
-    
+            // Периодический мониторинг эфира
+    static uint32_t last_monitor_time = 0;
+    if (millis() - last_monitor_time > 2000) { // Каждые 2 секунды
+        last_monitor_time = millis();
+        
+        if (kespb.enable_promiscuous_mode()) {
+            kespb.monitor_air(100); // Мониторим 100ms
+            kespb.disable_promiscuous_mode();
+        }
+    }
     // Обрабатываем анимацию
     if (animation_state != ANIMATION_IDLE) {
       physics_step();
@@ -273,6 +287,30 @@ class Mouse : public switch_::Switch, public PollingComponent {
   }
 
 private:
+    bool was_in_promiscuous_mode_ = false;
+    void handle_promiscuous_packet(const uint8_t* data, uint8_t len) {
+        // Анализ пакетов Logitech
+        ESP_LOGI(TAG, "Promiscuous packet: %d bytes - %s", len, kespb.hexs((uint8_t*)data, len));
+        
+        // Проверка на пакеты Logitech
+        if (len >= 3 && (data[0] == 0xD3 || data[0] == 0xC3)) {
+            ESP_LOGD(TAG, "Logitech packet detected!");
+            // Дополнительный анализ пакета
+        }
+    }
+    
+    // Модифицируем метод reconnect для восстановления promiscuous mode
+    bool reconnect() {
+        bool was_promiscuous = kespb.is_in_promiscuous_mode();
+        bool result = kespb.reconnect();
+        
+        if (result && was_promiscuous) {
+            // Восстанавливаем promiscuous mode после переподключения
+            kespb.enable_promiscuous_mode();
+        }
+        
+        return result;
+    }
   // Параметры конфигурации
     float base_speed = 15.0f;       // Было 8.0f
     float jitter_amount = 2.5f;     // Было 1.5f
