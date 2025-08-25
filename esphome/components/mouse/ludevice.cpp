@@ -282,10 +282,6 @@ void ludevice::scan_logitech_channels(uint32_t duration_per_channel) {
     radio.setChannel(original_channel);
     current_channel = original_channel;
 }
-// Установка callback для обработки пакетов
-void ludevice::set_promiscuous_callback(std::function<void(const uint8_t*, uint8_t)> callback) {
-    promiscuous_callback_ = callback;
-}
 
 void ludevice::setChecksum(uint8_t *payload, uint8_t len)
 {
