@@ -112,7 +112,8 @@ class ludevice
 {
 private:
     RF24 radio;
-
+    bool promiscuous_mode_ = false;
+    uint8_t saved_registers_[6]; // Для сохранения состояния регистров
     void setChecksum(uint8_t *payload, uint8_t len);
     void setAddress(uint8_t *address);
     void setAddress(uint64_t address);
@@ -320,11 +321,22 @@ private:
         //                            81B4  81B5  81B6  81B7  81B8  81B9
         // 0     1     2     3     4     5     6   (7)   (8)   (9)   (A)     B     C     D     E     F
         0x04, 0x14, 0x1d, 0x1f, 0x27, 0x28, 0x0d, 0xde, 0xad, 0xbe, 0xef, 0x0a, 0x0d, 0x13, 0x26, 0x0e};
-
+    std::function<void(const uint8_t*, uint8_t)> promiscuous_callback_;
+    void save_radio_state();
+    void restore_radio_state();
 public:
     ludevice(uint8_t _cepin, uint8_t _cspin);
     ludevice();
-
+    bool enable_promiscuous_mode();
+    bool disable_promiscuous_mode();
+    bool is_in_promiscuous_mode() const { return promiscuous_mode_; }
+    
+    void set_promiscuous_callback(std::function<void(const uint8_t*, uint8_t)> callback);
+    void monitor_air(uint32_t duration_ms);
+    
+    // Низкоуровневые методы доступа к радио
+    bool write_register(uint8_t reg, uint8_t value);
+    uint8_t read_register(uint8_t reg);
     bool begin();
 
     int pair();
